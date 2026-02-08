@@ -1,0 +1,11 @@
+# SPEC-05: Session Prompt Loop
+
+> 里程碑: M1 | 优先级: P1 | 状态: ⚪ 待开始
+
+## 目标
+
+TODO: 待分析需求
+
+## 需求
+
+TODO: 待补充

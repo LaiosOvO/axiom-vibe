@@ -1,0 +1,5 @@
+#!/usr/bin/env bun
+
+export const VERSION = '0.1.0'
+
+console.log(`Axiom v${VERSION}`)

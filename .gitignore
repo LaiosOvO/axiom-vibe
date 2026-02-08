@@ -1,0 +1,17 @@
+.DS_Store
+node_modules
+.turbo
+dist
+ts-dist
+*.bun-build
+.env
+.env.*
+!.env.example
+.idea
+.vscode
+tmp
+logs/
+a.out
+target
+.direnv/
+bun.lock
