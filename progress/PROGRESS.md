@@ -9,8 +9,8 @@
 | M0: 项目骨架 | 🟢 已完成 | 3 | 3 | 100% |
 | M1: 核心引擎 | 🟢 已完成 | 8 | 8 | 100% |
 | M2: 特色功能 | 🟢 已完成 | 6 | 6 | 100% |
-| M3: 客户端 | ⚪ 待开始 | 4 | 0 | 0% |
-| **总计** | | **21** | **17** | **81%** |
+| M3: 客户端 | 🟢 已完成 | 4 | 4 | 100% |
+| **总计** | | **21** | **21** | **100%** |
 
 ## 状态说明
 
@@ -58,10 +58,10 @@
 
 | Spec | 状态 | 测试 | 验收 | 依赖 |
 |------|------|------|------|------|
-| [clients/01-tui-app](../specs/clients/01-tui-app/requirement.md) | ⚪ | - | - | M1 |
-| [clients/02-desktop-app](../specs/clients/02-desktop-app/requirement.md) | ⚪ | - | - | M1 |
-| [clients/03-vscode-plugin](../specs/clients/03-vscode-plugin/requirement.md) | ⚪ | - | - | M1 |
-| [clients/04-ide-fork](../specs/clients/04-ide-fork/requirement.md) | ⚪ | - | - | 03 |
+| [clients/01-tui-app](../specs/clients/01-tui-app/requirement.md) | 🟢 | 13/13 ✅ | ✅ | M1 |
+| [clients/02-desktop-app](../specs/clients/02-desktop-app/requirement.md) | 🟢 | 5/5 ✅ | ✅ | M1 |
+| [clients/03-vscode-plugin](../specs/clients/03-vscode-plugin/requirement.md) | 🟢 | 13/13 ✅ | ✅ | M1 |
+| [clients/04-ide-fork](../specs/clients/04-ide-fork/requirement.md) | 🟢 | 14/14 ✅ | ✅ | 03 |
 
 ---
 
@@ -75,3 +75,4 @@
 | 2026-02-09 | M1 第一批完成: SPEC-03/04/09 (23 tests pass) | axiom |
 | 2026-02-09 | M1 里程碑完成: 全部 8 个 SPEC (84 tests pass, 8/8 typecheck) | axiom |
 | 2026-02-09 | M2 里程碑完成: 全部 6 个 SPEC (131 tests pass, 8/8 typecheck) | axiom |
+| 2026-02-09 | M3 里程碑完成: SDK + TUI + Desktop + VSCode + IDE (176 tests pass, 8/8 typecheck) | axiom |
