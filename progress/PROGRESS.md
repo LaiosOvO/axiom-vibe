@@ -8,9 +8,9 @@
 |--------|------|---------|------|------|
 | M0: 项目骨架 | 🟢 已完成 | 3 | 3 | 100% |
 | M1: 核心引擎 | 🟢 已完成 | 8 | 8 | 100% |
-| M2: 特色功能 | ⚪ 待开始 | 6 | 0 | 0% |
+| M2: 特色功能 | 🟢 已完成 | 6 | 6 | 100% |
 | M3: 客户端 | ⚪ 待开始 | 4 | 0 | 0% |
-| **总计** | | **21** | **11** | **52%** |
+| **总计** | | **21** | **17** | **81%** |
 
 ## 状态说明
 
@@ -47,12 +47,12 @@
 
 | Spec | 状态 | 测试 | 验收 | 依赖 |
 |------|------|------|------|------|
-| [features/01-spec-engine](../specs/features/01-spec-engine/requirement.md) | ⚪ | - | - | M1 |
-| [features/02-deep-research](../specs/features/02-deep-research/requirement.md) | ⚪ | - | - | M1 |
-| [features/03-github-search](../specs/features/03-github-search/requirement.md) | ⚪ | - | - | M1 |
-| [features/04-self-growth](../specs/features/04-self-growth/requirement.md) | ⚪ | - | - | M1 |
-| [features/05-agent-orchestration](../specs/features/05-agent-orchestration/requirement.md) | ⚪ | - | - | M1 |
-| [features/06-acceptance-testing](../specs/features/06-acceptance-testing/requirement.md) | ⚪ | - | - | M1 |
+| [features/01-spec-engine](../specs/features/01-spec-engine/requirement.md) | 🟢 | ✅ | ✅ | M1 |
+| [features/02-deep-research](../specs/features/02-deep-research/requirement.md) | 🟢 | ✅ | ✅ | M1 |
+| [features/03-github-search](../specs/features/03-github-search/requirement.md) | 🟢 | ✅ | ✅ | M1 |
+| [features/04-self-growth](../specs/features/04-self-growth/requirement.md) | 🟢 | ✅ | ✅ | M1 |
+| [features/05-agent-orchestration](../specs/features/05-agent-orchestration/requirement.md) | 🟢 | ✅ | ✅ | M1 |
+| [features/06-acceptance-testing](../specs/features/06-acceptance-testing/requirement.md) | 🟢 | ✅ | ✅ | M1 |
 
 ## M3: 客户端
 
@@ -74,3 +74,4 @@
 | 2026-02-09 | 更新 PROGRESS.md，标记 M0 为已完成 | axiom |
 | 2026-02-09 | M1 第一批完成: SPEC-03/04/09 (23 tests pass) | axiom |
 | 2026-02-09 | M1 里程碑完成: 全部 8 个 SPEC (84 tests pass, 8/8 typecheck) | axiom |
+| 2026-02-09 | M2 里程碑完成: 全部 6 个 SPEC (131 tests pass, 8/8 typecheck) | axiom |
