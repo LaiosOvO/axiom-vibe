@@ -7,10 +7,10 @@
 | 里程碑 | 状态 | Spec 数 | 完成 | 进度 |
 |--------|------|---------|------|------|
 | M0: 项目骨架 | 🟢 已完成 | 3 | 3 | 100% |
-| M1: 核心引擎 | 🔵 进行中 | 8 | 3 | 37% |
+| M1: 核心引擎 | 🟢 已完成 | 8 | 8 | 100% |
 | M2: 特色功能 | ⚪ 待开始 | 6 | 0 | 0% |
 | M3: 客户端 | ⚪ 待开始 | 4 | 0 | 0% |
-| **总计** | | **21** | **6** | **29%** |
+| **总计** | | **21** | **11** | **52%** |
 
 ## 状态说明
 
@@ -36,12 +36,12 @@
 |------|------|------|------|------|
 | [core/03-provider-system](../specs/core/03-provider-system/requirement.md) | 🟢 | 9/9 ✅ | ✅ | M0 |
 | [core/04-tool-system](../specs/core/04-tool-system/requirement.md) | 🟢 | 9/9 ✅ | ✅ | M0 |
-| [core/05-session-loop](../specs/core/05-session-loop/requirement.md) | ⚪ | - | - | 03, 04 |
-| [core/06-agent-system](../specs/core/06-agent-system/requirement.md) | ⚪ | - | - | 05 |
-| [core/07-mcp-integration](../specs/core/07-mcp-integration/requirement.md) | ⚪ | - | - | 04 |
-| [core/08-lsp-integration](../specs/core/08-lsp-integration/requirement.md) | ⚪ | - | - | 04 |
+| [core/05-session-loop](../specs/core/05-session-loop/requirement.md) | 🟢 | 13/13 ✅ | ✅ | 03, 04 |
+| [core/06-agent-system](../specs/core/06-agent-system/requirement.md) | 🟢 | ✅ | ✅ | 05 |
+| [core/07-mcp-integration](../specs/core/07-mcp-integration/requirement.md) | 🟢 | ✅ | ✅ | 04 |
+| [core/08-lsp-integration](../specs/core/08-lsp-integration/requirement.md) | 🟢 | ✅ | ✅ | 04 |
 | [core/09-storage](../specs/core/09-storage/requirement.md) | 🟢 | 5/5 ✅ | ✅ | M0 |
-| [core/10-http-server](../specs/core/10-http-server/requirement.md) | ⚪ | - | - | 05 |
+| [core/10-http-server](../specs/core/10-http-server/requirement.md) | 🟢 | ✅ | ✅ | 05 |
 
 ## M2: 特色功能
 
@@ -73,3 +73,4 @@
 | 2026-02-08 | M0 里程碑完成: SPEC-00/01/02 (19 tests pass) | axiom |
 | 2026-02-09 | 更新 PROGRESS.md，标记 M0 为已完成 | axiom |
 | 2026-02-09 | M1 第一批完成: SPEC-03/04/09 (23 tests pass) | axiom |
+| 2026-02-09 | M1 里程碑完成: 全部 8 个 SPEC (84 tests pass, 8/8 typecheck) | axiom |
