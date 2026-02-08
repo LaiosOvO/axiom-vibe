@@ -10,6 +10,6 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "5.8.2"
   }
 }
