@@ -2,14 +2,15 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { AxiomClient } from '../src/index'
 
 describe('AxiomClient', () => {
-  let mockFetch: (url: string, options?: any) => Promise<Response>
+  let mockFetch: (url: string, options?: RequestInit) => Promise<Response>
   let originalFetch: typeof globalThis.fetch
 
   beforeEach(() => {
     originalFetch = globalThis.fetch
-    mockFetch = async (url: string, options?: any) => {
+    mockFetch = async (url: string, options?: RequestInit) => {
       const method = options?.method || 'GET'
-      const body = options?.body ? JSON.parse(options.body) : null
+      const body =
+        options?.body && typeof options.body === 'string' ? JSON.parse(options.body) : null
 
       if (url.includes('/health')) {
         return new Response(JSON.stringify({ status: 'ok' }), {
@@ -169,7 +170,7 @@ describe('AxiomClient', () => {
       return new Response(null, { status: 404 })
     }
 
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as typeof fetch
   })
 
   test('create client with default config', () => {

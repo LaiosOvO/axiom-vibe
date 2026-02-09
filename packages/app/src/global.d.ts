@@ -4,7 +4,7 @@ declare module 'solid-js' {
   namespace JSX {
     interface IntrinsicElements {
       box: {
-        children?: any
+        children?: import('solid-js').JSX.Element
         width?: number
         height?: number
         flexDirection?: 'row' | 'column'
@@ -23,7 +23,7 @@ declare module 'solid-js' {
         onMouseUp?: () => void
       }
       text: {
-        children?: any
+        children?: import('solid-js').JSX.Element
         fg?: string
         bg?: string
         bold?: boolean
@@ -36,7 +36,7 @@ declare module 'solid-js' {
         marginBottom?: number
       }
       scrollbox: {
-        children?: any
+        children?: import('solid-js').JSX.Element
         height?: number
         width?: number
       }

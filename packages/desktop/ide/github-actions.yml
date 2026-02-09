@@ -1,0 +1,208 @@
+# Axiom IDE 自动构建 CI/CD
+#
+# 功能：
+# - macOS 和 Linux 双平台构建
+# - 自动打包和发布 Release
+# - 支持 arm64 和 x64 架构
+
+name: Build Axiom IDE
+
+on:
+  push:
+    tags:
+      - 'ide-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（例如 0.1.0）'
+        required: true
+        default: '0.1.0'
+
+jobs:
+  build-macos:
+    name: 构建 macOS 版本
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装 Yarn
+        run: npm install -g yarn
+
+      - name: 安装依赖
+        run: |
+          cd packages/desktop
+          bun install
+
+      - name: 构建 Axiom VSCode 扩展
+        run: |
+          cd packages/vscode
+          bun install
+          bun run build
+
+      - name: 克隆 VSCodium
+        run: |
+          cd packages/desktop/ide
+          mkdir -p ../.build
+          cd ../.build
+          git clone --depth=1 https://github.com/VSCodium/vscodium.git
+
+      - name: 应用品牌补丁
+        run: |
+          cd packages/desktop/ide
+          bun run patch-brand.ts ../.build/vscodium
+
+      - name: 应用扩展补丁
+        run: |
+          cd packages/desktop/ide
+          bun run patch-extensions.ts ../.build/vscodium
+
+      - name: 构建 IDE (${{ matrix.arch }})
+        env:
+          OS_NAME: osx
+          VSCODE_ARCH: ${{ matrix.arch }}
+        run: |
+          cd packages/desktop/.build/vscodium
+          ./build.sh
+
+      - name: 打包应用
+        run: |
+          cd packages/desktop/.build
+          tar -czf axiom-ide-macos-${{ matrix.arch }}.tar.gz VSCode-darwin-${{ matrix.arch }}
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: axiom-ide-macos-${{ matrix.arch }}
+          path: packages/desktop/.build/axiom-ide-macos-${{ matrix.arch }}.tar.gz
+          retention-days: 7
+
+  build-linux:
+    name: 构建 Linux 版本
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装 Yarn
+        run: npm install -g yarn
+
+      - name: 安装系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxkbfile-dev libsecret-1-dev
+
+      - name: 安装依赖
+        run: |
+          cd packages/desktop
+          bun install
+
+      - name: 构建 Axiom VSCode 扩展
+        run: |
+          cd packages/vscode
+          bun install
+          bun run build
+
+      - name: 克隆 VSCodium
+        run: |
+          cd packages/desktop/ide
+          mkdir -p ../.build
+          cd ../.build
+          git clone --depth=1 https://github.com/VSCodium/vscodium.git
+
+      - name: 应用品牌补丁
+        run: |
+          cd packages/desktop/ide
+          bun run patch-brand.ts ../.build/vscodium
+
+      - name: 应用扩展补丁
+        run: |
+          cd packages/desktop/ide
+          bun run patch-extensions.ts ../.build/vscodium
+
+      - name: 构建 IDE (${{ matrix.arch }})
+        env:
+          OS_NAME: linux
+          VSCODE_ARCH: ${{ matrix.arch }}
+        run: |
+          cd packages/desktop/.build/vscodium
+          ./build.sh
+
+      - name: 打包应用
+        run: |
+          cd packages/desktop/.build
+          tar -czf axiom-ide-linux-${{ matrix.arch }}.tar.gz VSCode-linux-${{ matrix.arch }}
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: axiom-ide-linux-${{ matrix.arch }}
+          path: packages/desktop/.build/axiom-ide-linux-${{ matrix.arch }}.tar.gz
+          retention-days: 7
+
+  release:
+    name: 创建 Release
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/ide-v')
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/axiom-ide-macos-arm64/*.tar.gz
+            artifacts/axiom-ide-macos-x64/*.tar.gz
+            artifacts/axiom-ide-linux-x64/*.tar.gz
+            artifacts/axiom-ide-linux-arm64/*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Axiom Desktop</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 600px;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+
+    .status {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .status-text {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      margin: 1rem 0;
+    }
+
+    .loading:after {
+      content: " ";
+      display: block;
+      width: 32px;
+      height: 32px;
+      margin: 4px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      border-color: #fff transparent #fff transparent;
+      animation: loading 1.2s linear infinite;
+    }
+
+    @keyframes loading {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .error {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fee;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .error.show {
+      display: block;
+    }
+
+    .info {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      margin-top: 2rem;
+    }
+
+    .info code {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', monospace;
+    }
+
+    iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: none;
+    }
+
+    iframe.loaded {
+      display: block;
+    }
+
+    .hide {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="loading-container">
+    <h1>Axiom</h1>
+    <p class="subtitle">AI 驱动的编码 Agent 平台</p>
+    
+    <div class="status">
+      <p class="status-text" id="status-text">正在连接到 Axiom 服务器...</p>
+      <div class="loading"></div>
+    </div>
+
+    <div class="error" id="error-message"></div>
+
+    <div class="info">
+      <p>确保 Axiom 服务器正在运行：</p>
+      <p><code>axiom serve</code></p>
+      <p style="margin-top: 0.5rem;">默认端口: <code>4096</code></p>
+    </div>
+  </div>
+
+  <iframe id="app-frame" src="http://localhost:4096"></iframe>
+
+  <script>
+    const statusText = document.getElementById('status-text');
+    const errorMessage = document.getElementById('error-message');
+    const loadingContainer = document.getElementById('loading-container');
+    const appFrame = document.getElementById('app-frame');
+    
+    let retryCount = 0;
+    const maxRetries = 10;
+    const retryDelay = 2000; // 2 秒
+
+    // 检查服务器是否可用
+    async function checkServer() {
+      try {
+        statusText.textContent = `正在连接到 Axiom 服务器... (尝试 ${retryCount + 1}/${maxRetries})`;
+        
+        const response = await fetch('http://localhost:4096', {
+          method: 'HEAD',
+          mode: 'no-cors',
+        });
+
+        // 连接成功，显示 iframe
+        loadIframe();
+      } catch (error) {
+        retryCount++;
+        
+        if (retryCount >= maxRetries) {
+          showError('无法连接到 Axiom 服务器。请确保已运行 <code>axiom serve</code>');
+        } else {
+          setTimeout(checkServer, retryDelay);
+        }
+      }
+    }
+
+    function loadIframe() {
+      statusText.textContent = '正在加载 Axiom...';
+      
+      appFrame.onload = function() {
+        loadingContainer.classList.add('hide');
+        appFrame.classList.add('loaded');
+      };
+
+      // 如果 5 秒后还没加载完成，直接显示 iframe（可能是跨域限制导致 onload 不触发）
+      setTimeout(() => {
+        if (!appFrame.classList.contains('loaded')) {
+          loadingContainer.classList.add('hide');
+          appFrame.classList.add('loaded');
+        }
+      }, 5000);
+    }
+
+    function showError(message) {
+      errorMessage.innerHTML = message;
+      errorMessage.classList.add('show');
+      document.querySelector('.loading').style.display = 'none';
+      statusText.textContent = '连接失败';
+    }
+
+    // 开始检查服务器
+    checkServer();
+  </script>
+</body>
+</html>

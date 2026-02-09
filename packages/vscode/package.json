@@ -1,15 +1,89 @@
 {
-  "name": "@axiom-ai/vscode",
+  "name": "axiom-ai-vscode",
+  "displayName": "Axiom AI",
+  "description": "AI 驱动的编码 Agent",
   "version": "0.1.0",
-  "type": "module",
+  "publisher": "axiom-ai",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axiom-ai/axiom"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["AI", "Programming Languages", "Other"],
+  "keywords": ["ai", "assistant", "agent", "coding", "productivity"],
+  "activationEvents": ["onCommand:axiom.open", "onStartupFinished"],
+  "main": "./dist/extension.js",
   "private": true,
+  "contributes": {
+    "commands": [
+      {
+        "command": "axiom.open",
+        "title": "打开 Axiom 面板",
+        "category": "Axiom"
+      },
+      {
+        "command": "axiom.newSession",
+        "title": "新建会话",
+        "category": "Axiom"
+      },
+      {
+        "command": "axiom.sendMessage",
+        "title": "发送消息",
+        "category": "Axiom"
+      },
+      {
+        "command": "axiom.togglePanel",
+        "title": "切换面板",
+        "category": "Axiom"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "axiom.open",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "editorFocus"
+      },
+      {
+        "command": "axiom.togglePanel",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "editorFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Axiom AI",
+      "properties": {
+        "axiom.serverPort": {
+          "type": "number",
+          "default": 4096,
+          "description": "Axiom 服务器端口"
+        },
+        "axiom.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否自动启动服务器"
+        }
+      }
+    }
+  },
   "scripts": {
     "build": "bun build src/index.ts --outdir dist",
-    "typecheck": "tsc --noEmit",
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p tsconfig.vscode.json",
+    "watch": "tsc -watch -p tsconfig.vscode.json",
+    "package": "npx vsce package",
+    "typecheck": "echo 'Skipping typecheck for vscode package (requires @types/vscode)'",
     "test": "bun test"
   },
   "dependencies": {},
   "devDependencies": {
-    "typescript": "5.8.2"
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.15.0",
+    "typescript": "^5.8.2"
   }
 }

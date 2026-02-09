@@ -22,7 +22,11 @@ describe('Research Tool', () => {
 
   it('research 工具参数 schema 验证 - url 有效', () => {
     const tool = ToolRegistry.get('research')
-    const result = tool!.parameters.parse({ url: 'https://github.com/test/repo' })
+    const result = tool!.parameters.parse({ url: 'https://github.com/test/repo' }) as {
+      url: string
+      features: string[]
+      name?: string
+    }
     expect(result.url).toBe('https://github.com/test/repo')
     expect(result.features).toEqual([])
   })
@@ -33,7 +37,7 @@ describe('Research Tool', () => {
       url: 'https://github.com/test/repo',
       features: ['auth', 'session'],
       name: 'my-project',
-    })
+    }) as { url: string; features: string[]; name?: string }
     expect(result.features).toEqual(['auth', 'session'])
     expect(result.name).toBe('my-project')
   })

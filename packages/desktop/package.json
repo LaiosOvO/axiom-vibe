@@ -6,10 +6,18 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:icon": "tauri icon",
+    "ide:build": "bun run ide/build.ts",
+    "ide:patch": "bun run ide/patch-brand.ts .build/vscodium && bun run ide/patch-extensions.ts .build/vscodium"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
     "typescript": "5.8.2"
   }
 }

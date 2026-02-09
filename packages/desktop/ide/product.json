@@ -1,0 +1,14 @@
+{
+  "nameShort": "Axiom IDE",
+  "nameLong": "Axiom IDE - AI Coding Agent",
+  "applicationName": "axiom-ide",
+  "dataFolderName": ".axiom-ide",
+  "win32MutexName": "axiomide",
+  "licenseName": "MIT",
+  "version": "0.1.0",
+  "serverApplicationName": "axiom-ide-server",
+  "extensionGallery": {
+    "serviceUrl": "https://open-vsx.org/vsx",
+    "itemUrl": "https://open-vsx.org/vsx/item"
+  }
+}

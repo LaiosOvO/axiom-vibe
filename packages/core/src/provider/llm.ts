@@ -14,7 +14,7 @@ export namespace ProviderFactory {
    * BUNDLED_PROVIDERS 映射表: providerId -> create函数
    * 包含已安装的核心 AI SDK providers
    */
-  const BUNDLED_PROVIDERS: Record<string, (options?: any) => any> = {
+  const BUNDLED_PROVIDERS: Record<string, (options?: Record<string, unknown>) => unknown> = {
     anthropic: createAnthropic,
     openai: createOpenAI,
     google: createGoogleGenerativeAI,
@@ -40,8 +40,8 @@ export namespace ProviderFactory {
    * 获取 provider 的 API Key
    * 优先级: options.apiKey > 环境变量
    */
-  function getApiKey(providerId: string, options?: Record<string, any>): string | undefined {
-    if (options?.apiKey) {
+  function getApiKey(providerId: string, options?: Record<string, unknown>): string | undefined {
+    if (options?.apiKey && typeof options.apiKey === 'string') {
       return options.apiKey
     }
 
@@ -69,7 +69,7 @@ export namespace ProviderFactory {
    * @param options - 可选配置（apiKey, baseURL 等）
    * @returns Provider SDK 实例
    */
-  export function createProvider(providerId: string, options?: Record<string, any>): any {
+  export function createProvider(providerId: string, options?: Record<string, unknown>): unknown {
     const apiKey = getApiKey(providerId, options)
 
     // 如果是 bundled provider，直接使用对应的 create 函数
@@ -82,7 +82,9 @@ export namespace ProviderFactory {
 
     // 如果是 openai-compatible provider，使用 createOpenAI + baseURL
     if (OPENAI_COMPATIBLE_URLS[providerId]) {
-      const baseURL = options?.baseURL ?? OPENAI_COMPATIBLE_URLS[providerId]
+      const baseURL =
+        (typeof options?.baseURL === 'string' ? options.baseURL : undefined) ??
+        OPENAI_COMPATIBLE_URLS[providerId]
       return createOpenAI({
         apiKey,
         baseURL,
@@ -103,13 +105,16 @@ export namespace ProviderFactory {
   export function getLanguageModel(
     providerId: string,
     modelName: string,
-    options?: Record<string, any>,
+    options?: Record<string, unknown>,
   ): LanguageModel {
     const sdk = createProvider(providerId, options)
 
     // 大部分 provider SDK 提供 languageModel 方法
-    if (typeof sdk.languageModel === 'function') {
-      return sdk.languageModel(modelName)
+    if (typeof sdk === 'object' && sdk !== null && 'languageModel' in sdk) {
+      const languageModelFn = (sdk as Record<string, unknown>).languageModel
+      if (typeof languageModelFn === 'function') {
+        return languageModelFn(modelName) as LanguageModel
+      }
     }
 
     // 某些 provider SDK 可以直接作为函数调用

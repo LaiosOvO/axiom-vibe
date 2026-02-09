@@ -1,18 +1,14 @@
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
-// biome-ignore lint/style/useImportType: z 在 registerBuiltinTools 中作为值使用
 import { z } from 'zod'
 
 export namespace Tool {
   export interface Info<P = unknown, R = unknown> {
     name: string
     description: string
-    // biome-ignore lint/suspicious/noExplicitAny: ZodType 需要这些泛型参数
-    parameters: z.ZodType<P, any, any>
-    // biome-ignore lint/suspicious/noExplicitAny: ZodType 需要这些泛型参数
-    result: z.ZodType<R, any, any>
-    // biome-ignore lint/suspicious/noExplicitAny: execute 接受验证前的原始输入
-    execute: (params: any) => Promise<R>
+    parameters: z.ZodType<P>
+    result: z.ZodType<R>
+    execute: (params: unknown) => Promise<R>
   }
 
   export function define<S extends z.ZodType, T extends z.ZodType>(options: {
@@ -24,8 +20,7 @@ export namespace Tool {
   }): Info<z.infer<S>, z.infer<T>> {
     const { name, description, parameters, result, execute: rawExecute } = options
 
-    // biome-ignore lint/suspicious/noExplicitAny: 接受任意输入进行验证
-    const wrappedExecute = async (params: any): Promise<z.infer<T>> => {
+    const wrappedExecute = async (params: unknown): Promise<z.infer<T>> => {
       const validated = parameters.parse(params)
       return rawExecute(validated)
     }
@@ -33,15 +28,14 @@ export namespace Tool {
     return {
       name,
       description,
-      parameters: parameters as z.ZodType<z.infer<S>, any, any>,
-      result: result as z.ZodType<z.infer<T>, any, any>,
+      parameters: parameters as z.ZodType<z.infer<S>>,
+      result: result as z.ZodType<z.infer<T>>,
       execute: wrappedExecute,
     }
   }
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: 需要存储不同类型的工具
-const registry = new Map<string, Tool.Info<any, any>>()
+const registry = new Map<string, Tool.Info<unknown, unknown>>()
 
 export namespace ToolRegistry {
   export function register<P, R>(tool: Tool.Info<P, R>): void {

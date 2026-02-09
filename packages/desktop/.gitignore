@@ -1,0 +1,8 @@
+# Tauri 构建产物
+src-tauri/target/
+
+# Rust 锁文件（通常应该提交，但 Tauri 项目可以忽略）
+# src-tauri/Cargo.lock
+
+# IDE 构建目录
+.build/
