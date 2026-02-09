@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { z } from 'zod'
 import { Agent } from '../agent'
 import { AgentRunner } from '../agent/runner'
@@ -17,6 +18,32 @@ export namespace Server {
 
   export function createApp(): Hono {
     const app = new Hono()
+
+    app.use(
+      '*',
+      cors({
+        origin: [
+          'http://localhost:4096',
+          'http://127.0.0.1:4096',
+          'tauri://localhost',
+          'https://tauri.localhost',
+        ],
+        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization'],
+      }),
+    )
+
+    app.get('/', (c) => {
+      return c.html(`<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>Axiom</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.c{text-align:center;max-width:480px;padding:2rem}.h{font-size:2.5rem;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem}
+.s{color:#888;margin-bottom:2rem}.api{display:grid;gap:.5rem;text-align:left;background:#111;border-radius:8px;padding:1rem;font-family:monospace;font-size:.85rem;color:#aaa}
+.api a{color:#667eea;text-decoration:none}.api a:hover{text-decoration:underline}</style></head>
+<body><div class="c"><h1 class="h">Axiom</h1><p class="s">AI 驱动的编码 Agent 平台 — Server 运行中</p>
+<div class="api"><div>GET <a href="/health">/health</a></div><div>GET <a href="/agents">/agents</a></div><div>GET <a href="/providers">/providers</a></div>
+<div>GET <a href="/tools">/tools</a></div><div>GET <a href="/session">/session</a></div><div>POST /session/:id/chat (SSE)</div></div></div></body></html>`)
+    })
 
     app.get('/health', (c) => {
       return c.json({ status: 'ok' })

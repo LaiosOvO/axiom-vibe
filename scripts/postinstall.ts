@@ -1,15 +1,7 @@
 #!/usr/bin/env bun
 
-/**
- * postinstall 脚本
- *
- * 功能：验证 JSX 垫片文件存在，如不存在则重新创建
- * 这确保了 npm install 后 TypeScript 能正确解析 React JSX 类型
- */
-
 import { resolve } from 'node:path'
 
-// 定义垫片文件的路径和内容
 const shims = [
   {
     path: 'packages/app/src/react/jsx-runtime.d.ts',
@@ -29,14 +21,58 @@ export * from 'solid-js/jsx-runtime'
     content: `/// <reference types="solid-js/types/jsx" />
 `,
   },
+  {
+    path: 'node_modules/react/package.json',
+    content: `{
+  "name": "react",
+  "version": "0.0.0-solid-shim",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./jsx-runtime": "./jsx-runtime.js",
+    "./jsx-dev-runtime": "./jsx-dev-runtime.js"
+  }
+}
+`,
+  },
+  {
+    path: 'node_modules/react/index.js',
+    content: 'export * from "solid-js";\n',
+  },
+  {
+    path: 'node_modules/react/jsx-runtime.js',
+    content: `import { createComponent } from "solid-js";
+export function jsx(type, props) {
+  if (typeof type === "function") return createComponent(type, props || {});
+  return { type, props: props || {} };
+}
+export const jsxs = jsx;
+export const Fragment = (props) => props.children;
+`,
+  },
+  {
+    path: 'node_modules/react/jsx-dev-runtime.js',
+    content: `import { createComponent } from "solid-js";
+export function jsxDEV(type, props) {
+  if (typeof type === "function") return createComponent(type, props || {});
+  return { type, props: props || {} };
+}
+export const Fragment = (props) => props.children;
+`,
+  },
+  {
+    path: 'node_modules/react/jsx-runtime.js',
+    content: 'export { jsx, jsxs, Fragment } from "solid-js/h/jsx-runtime";\n',
+  },
+  {
+    path: 'node_modules/react/jsx-dev-runtime.js',
+    content: 'export { jsxDEV, Fragment } from "solid-js/h/jsx-runtime";\n',
+  },
 ]
 
-/**
- * 确保垫片文件存在
- */
 async function ensureShims() {
   const projectRoot = process.cwd()
-  let allExist = true
+  let rebuilt = 0
 
   for (const shim of shims) {
     const fullPath = resolve(projectRoot, shim.path)
@@ -44,26 +80,20 @@ async function ensureShims() {
     const exists = await file.exists()
 
     if (!exists) {
-      console.log(`📝 创建垫片文件: ${shim.path}`)
       await Bun.write(fullPath, shim.content)
-      allExist = false
-    } else {
-      console.log(`✅ 垫片文件已存在: ${shim.path}`)
+      rebuilt++
     }
   }
 
-  if (allExist) {
-    console.log('✨ 所有 JSX 垫片文件都已就位')
-  } else {
-    console.log('✨ JSX 垫片文件已重建')
+  if (rebuilt > 0) {
+    console.log(`[postinstall] ${rebuilt} 个 JSX 垫片文件已重建`)
   }
 }
 
-// 执行脚本
 try {
   await ensureShims()
   process.exit(0)
 } catch (error) {
-  console.error('❌ postinstall 脚本失败:', error)
+  console.error('[postinstall] 失败:', error)
   process.exit(1)
 }

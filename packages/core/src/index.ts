@@ -109,6 +109,10 @@ ${NAME} v${VERSION} — AI 驱动的编码 Agent 平台
 /** 处理 TUI 模式 — 启动终端界面 */
 export async function handleTui() {
   try {
+    const { plugin } = await import('bun')
+    const { default: solidPlugin } = await import('@opentui/solid/bun-plugin')
+    plugin(solidPlugin)
+
     const mod = await import('../../app/src/tui/app')
     await mod.tui({
       onExit: async () => {
