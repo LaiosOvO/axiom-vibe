@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { AxiomClient } from '../src/index'
 
 describe('AxiomClient', () => {
@@ -27,7 +27,7 @@ describe('AxiomClient', () => {
               createdAt: Date.now(),
             },
           ]),
-          { status: 200 }
+          { status: 200 },
         )
       }
 
@@ -39,7 +39,7 @@ describe('AxiomClient', () => {
             title: body.title || 'Untitled',
             createdAt: Date.now(),
           }),
-          { status: 200 }
+          { status: 200 },
         )
       }
 
@@ -51,7 +51,7 @@ describe('AxiomClient', () => {
             title: 'Test Session',
             createdAt: Date.now(),
           }),
-          { status: 200 }
+          { status: 200 },
         )
       }
 
@@ -67,7 +67,7 @@ describe('AxiomClient', () => {
             content: 'Hello',
             createdAt: Date.now(),
           }),
-          { status: 200 }
+          { status: 200 },
         )
       }
 
@@ -101,7 +101,7 @@ describe('AxiomClient', () => {
     const sessions = await client.sessions.list()
     expect(Array.isArray(sessions)).toBe(true)
     expect(sessions.length).toBe(1)
-    expect(sessions[0].id).toBe('sess-1')
+    expect(sessions[0]!.id).toBe('sess-1')
   })
 
   test('create session returns new session', async () => {

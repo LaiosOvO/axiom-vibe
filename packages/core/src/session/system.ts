@@ -1,3 +1,4 @@
+import { Skill } from '../skill'
 import { ToolRegistry } from '../tool'
 
 /**
@@ -16,6 +17,8 @@ export namespace SystemPrompt {
     cwd?: string
     /** 用户自定义 prompt */
     customPrompt?: string
+    /** 已加载的 Skill 列表 */
+    skills?: Skill.Info[]
   }
 
   /**
@@ -44,6 +47,10 @@ export namespace SystemPrompt {
     // 添加模型信息
     if (opts.model) {
       sections.push(`当前模型: ${opts.model}`)
+    }
+
+    if (opts.skills && opts.skills.length > 0) {
+      sections.push(Skill.formatForPrompt(opts.skills))
     }
 
     // 添加自定义 prompt

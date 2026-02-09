@@ -2,12 +2,14 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { Config } from '../src/config'
 import { LspClient } from '../src/lsp/client'
 import { McpClient } from '../src/mcp/client'
+import { Permission } from '../src/permission'
 import { Provider } from '../src/provider'
 import { ProviderFactory } from '../src/provider/llm'
 import { Session } from '../src/session'
 import { LLM } from '../src/session/llm'
 import { SessionProcessor } from '../src/session/processor'
 import { SystemPrompt } from '../src/session/system'
+import type { Skill } from '../src/skill'
 import { Storage } from '../src/storage'
 import { ToolRegistry } from '../src/tool'
 import { cleanupTempDir, createTempDir } from './preload'
@@ -300,6 +302,122 @@ describe('M6 全链路集成测试', () => {
       expect(messages[0]?.role).toBe('user')
 
       Session.reset()
+    })
+  })
+
+  describe('Permission + SessionProcessor 集成', () => {
+    test('ProcessInput 类型接受 permissionRules 参数', () => {
+      const input: SessionProcessor.ProcessInput = {
+        sessionId: 'test-session',
+        userMessage: '测试消息',
+        model: ProviderFactory.getLanguageModel('anthropic', 'claude-sonnet-4-20250514'),
+        permissionRules: [{ tool: 'read', action: 'allow' }],
+      }
+      expect(input.permissionRules).toBeDefined()
+      expect(input.permissionRules?.length).toBe(1)
+    })
+
+    test('ProcessInput 类型接受 toolCallHistory 参数', () => {
+      const input: SessionProcessor.ProcessInput = {
+        sessionId: 'test-session',
+        userMessage: '测试消息',
+        model: ProviderFactory.getLanguageModel('anthropic', 'claude-sonnet-4-20250514'),
+        toolCallHistory: [{ toolName: 'read', args: { filePath: '/test' }, timestamp: Date.now() }],
+      }
+      expect(input.toolCallHistory).toBeDefined()
+      expect(input.toolCallHistory?.length).toBe(1)
+    })
+
+    test('ProcessInput 类型同时接受权限相关的两个参数', () => {
+      const now = Date.now()
+      const input: SessionProcessor.ProcessInput = {
+        sessionId: 'test-session',
+        userMessage: '测试消息',
+        model: ProviderFactory.getLanguageModel('anthropic', 'claude-sonnet-4-20250514'),
+        permissionRules: [
+          { tool: 'bash', action: 'ask' },
+          { tool: '*', action: 'allow' },
+        ],
+        toolCallHistory: [
+          { toolName: 'read', args: { filePath: '/test' }, timestamp: now },
+          { toolName: 'write', args: { filePath: '/test', content: 'x' }, timestamp: now + 1000 },
+        ],
+      }
+      expect(input.permissionRules?.length).toBe(2)
+      expect(input.toolCallHistory?.length).toBe(2)
+    })
+  })
+
+  describe('SystemPrompt + Skill 集成', () => {
+    test('skills 为空时 build 不添加 skill 段落', () => {
+      const sections = SystemPrompt.build({ skills: [] })
+      const joined = sections.join('\n')
+      expect(joined).not.toContain('<available_skills>')
+    })
+
+    test('skills 未提供时不报错', () => {
+      expect(() => {
+        const sections = SystemPrompt.build({})
+        expect(Array.isArray(sections)).toBe(true)
+      }).not.toThrow()
+    })
+
+    test('有 skills 时 build 添加 XML 格式的 skill 列表', () => {
+      const skills: Skill.Info[] = [
+        {
+          name: 'test-skill',
+          description: '测试技能',
+          source: 'user',
+          filePath: '/test/SKILL.md',
+          content: '技能内容',
+        },
+        {
+          name: 'another-skill',
+          description: '另一个技能',
+          source: 'project',
+          filePath: '/test/another/SKILL.md',
+          content: '技能内容',
+        },
+      ]
+
+      const sections = SystemPrompt.build({ skills })
+      const joined = sections.join('\n')
+
+      expect(joined).toContain('<available_skills>')
+      expect(joined).toContain('<skill>')
+      expect(joined).toContain('<name>test-skill</name>')
+      expect(joined).toContain('<description>测试技能</description>')
+      expect(joined).toContain('<name>another-skill</name>')
+      expect(joined).toContain('<description>另一个技能</description>')
+    })
+
+    test('skills 和其他参数一起使用', () => {
+      const skills: Skill.Info[] = [
+        {
+          name: 'coding-skill',
+          description: '编码技能',
+          source: 'builtin',
+          filePath: '/builtin/SKILL.md',
+          content: '编码技能内容',
+        },
+      ]
+
+      const sections = SystemPrompt.build({
+        cwd: '/tmp/project',
+        agent: 'coder',
+        model: 'claude-3',
+        skills,
+        customPrompt: '自定义规则',
+      })
+
+      const joined = sections.join('\n')
+
+      expect(joined).toContain('/tmp/project')
+      expect(joined).toContain('coder')
+      expect(joined).toContain('claude-3')
+      expect(joined).toContain('<available_skills>')
+      expect(joined).toContain('coding-skill')
+      expect(joined).toContain('自定义规则')
     })
   })
 })

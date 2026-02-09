@@ -2,6 +2,7 @@
 // Axiom - AI 驱动的编码 Agent 平台
 
 import { Agent } from './agent'
+import { AgentRunner } from './agent/runner'
 import { Config } from './config'
 import { LspClient } from './lsp/client'
 import { McpClient } from './mcp/client'
@@ -24,6 +25,7 @@ export {
   Provider,
   ProviderFactory,
   Agent,
+  AgentRunner,
   Config,
   LLM,
   SessionProcessor,
@@ -60,6 +62,9 @@ export async function main() {
     case 'run':
       await handleRun(args.slice(1))
       break
+    case 'research':
+      await handleResearch(args.slice(1))
+      break
     case 'serve':
       handleServe(args.slice(1))
       break
@@ -78,7 +83,8 @@ ${NAME} v${VERSION} — AI 驱动的编码 Agent 平台
 
 用法:
   axiom                 启动交互模式
-  axiom run <prompt>    Headless 模式，执行指定任务
+  axiom run <prompt>    Headless 模式 [--agent=build|plan|explore]
+  axiom research <url>  Deep Research，克隆并分析参考项目
   axiom serve           启动 HTTP 服务器
 
 选项:
@@ -112,7 +118,13 @@ export async function handleTui() {
 
 /** 处理 run 子命令 — headless 模式 */
 export async function handleRun(args: string[]) {
-  const prompt = args.join(' ')
+  // 解析 --agent 参数
+  const agentArg = args.find((a) => a.startsWith('--agent='))
+  const agentId = agentArg ? agentArg.split('=')[1] : 'build'
+  // 过滤掉 flag 参数，只保留 prompt
+  const promptArgs = args.filter((a) => !a.startsWith('--'))
+
+  const prompt = promptArgs.join(' ')
   if (!prompt) {
     console.error('错误: run 命令需要提供 prompt')
     console.error('用法: axiom run <prompt>')
@@ -151,6 +163,7 @@ export async function handleRun(args: string[]) {
     }
 
     console.log(`[axiom] 使用模型: ${modelId}`)
+    console.log(`[axiom] 使用 Agent: ${agentId}`)
 
     const model = ProviderFactory.getLanguageModel(providerId, modelName)
 
@@ -213,6 +226,51 @@ export function handleServe(args: string[]) {
     fetch: app.fetch,
     port,
   })
+}
+
+/** 处理 research 子命令 — Deep Research */
+export async function handleResearch(args: string[]) {
+  const url = args.find((a) => !a.startsWith('--'))
+  if (!url) {
+    console.error('错误: research 命令需要提供 Git 仓库 URL')
+    console.error('用法: axiom research <url> [--features=f1,f2,f3] [--name=项目名]')
+    process.exit(1)
+    return
+  }
+
+  const { Research } = await import('./research')
+
+  // 解析参数
+  const featuresArg = args.find((a) => a.startsWith('--features='))
+  const features = featuresArg ? (featuresArg.split('=')[1]?.split(',').filter(Boolean) ?? []) : []
+
+  const nameArg = args.find((a) => a.startsWith('--name='))
+  const name = nameArg ? nameArg.split('=')[1] : undefined
+
+  const projectRoot = process.cwd()
+  try {
+    console.log(`[axiom] 克隆参考项目: ${url}`)
+    const refProject = await Research.cloneProject(projectRoot, url, name)
+    console.log(`[axiom] 项目已克隆到: ${refProject.localPath}`)
+
+    const analyzeFeatures =
+      features.length > 0 ? features : ['config', 'session', 'tool', 'agent', 'provider']
+
+    console.log(`[axiom] 分析功能模块: ${analyzeFeatures.join(', ')}`)
+    const doc = await Research.generateRefDocument(projectRoot, refProject, analyzeFeatures)
+
+    console.log('[axiom] 生成参考文档...')
+    const summaryPath = await Research.saveRefDocument(projectRoot, doc)
+
+    console.log('')
+    console.log('[axiom] Deep Research 完成!')
+    console.log(`  项目: ${refProject.name}`)
+    console.log(`  文档: ${summaryPath}`)
+    console.log(`  模块: ${doc.modules.length} 个`)
+  } catch (error) {
+    console.error('[axiom] 错误:', error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
 }
 
 if (import.meta.main) {

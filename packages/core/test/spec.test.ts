@@ -148,10 +148,10 @@ updated: 2025-02-09T11:00:00Z
       expect(report.completed).toBe(1)
       expect(report.inProgress).toBe(1)
       expect(report.blocked).toBe(1)
-      expect(report.byMilestone['v1.0'].total).toBe(3)
-      expect(report.byMilestone['v1.0'].completed).toBe(1)
-      expect(report.byMilestone['v2.0'].total).toBe(1)
-      expect(report.byMilestone['v2.0'].completed).toBe(0)
+      expect(report.byMilestone['v1.0']!.total).toBe(3)
+      expect(report.byMilestone['v1.0']!.completed).toBe(1)
+      expect(report.byMilestone['v2.0']!.total).toBe(1)
+      expect(report.byMilestone['v2.0']!.completed).toBe(0)
     })
 
     it('空列表返回全部为 0', () => {
@@ -215,7 +215,7 @@ updated: 2025-02-09T11:00:00Z
       const blocked = SpecEngine.findBlocked(specs)
 
       expect(blocked.length).toBe(1)
-      expect(blocked[0].frontmatter.id).toBe('spec-003')
+      expect(blocked[0]!.frontmatter.id).toBe('spec-003')
     })
   })
 

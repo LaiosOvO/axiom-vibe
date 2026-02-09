@@ -1,4 +1,5 @@
 import type { LanguageModel } from 'ai'
+import { Permission } from '../permission'
 import { Session } from './index'
 import { LLM } from './llm'
 
@@ -33,6 +34,10 @@ export namespace SessionProcessor {
     temperature?: number
     /** 中止信号 */
     abortSignal?: AbortSignal
+    /** 权限规则（可选，未提供时默认全部 allow） */
+    permissionRules?: Permission.PermissionRule[]
+    /** 工具调用历史（用于 doom loop 检测） */
+    toolCallHistory?: Permission.ToolCallRecord[]
   }
 
   /**
@@ -86,6 +91,9 @@ export namespace SessionProcessor {
       totalTokens: 0,
     }
     let lastFinishReason = 'stop'
+
+    const toolCallHistory: Permission.ToolCallRecord[] = input.toolCallHistory || []
+    const permissionRules = input.permissionRules || [{ tool: '*', action: 'allow' as const }]
 
     while (continueLoop) {
       const toolCalls: Array<{ id: string; name: string; arguments: unknown }> = []
@@ -160,10 +168,61 @@ export namespace SessionProcessor {
                 throw new Error(`工具 ${toolCall.name} 不存在`)
               }
 
-              // 执行工具
+              const args = toolCall.arguments as Record<string, unknown>
+
+              const permissionAction = Permission.evaluate(permissionRules, toolCall.name, args)
+              if (permissionAction === 'deny') {
+                Session.addMessage(input.sessionId, {
+                  role: 'tool',
+                  content: `权限拒绝: 工具 ${toolCall.name} 被禁止执行`,
+                  toolResults: [
+                    {
+                      callId: toolCall.id,
+                      result: { error: `权限拒绝: 工具 ${toolCall.name} 被禁止执行` },
+                    },
+                  ],
+                })
+                continue
+              }
+
+              if (permissionAction === 'ask') {
+                Session.addMessage(input.sessionId, {
+                  role: 'tool',
+                  content: `权限待确认: 工具 ${toolCall.name} 需要用户确认`,
+                  toolResults: [
+                    {
+                      callId: toolCall.id,
+                      result: { error: `权限待确认: 工具 ${toolCall.name} 需要用户确认` },
+                    },
+                  ],
+                })
+                continue
+              }
+
+              if (Permission.checkDoomLoop(toolCallHistory, toolCall.name, args)) {
+                Session.addMessage(input.sessionId, {
+                  role: 'tool',
+                  content: `检测到重复调用: 工具 ${toolCall.name} 在短时间内重复调用次数过多`,
+                  toolResults: [
+                    {
+                      callId: toolCall.id,
+                      result: {
+                        error: `检测到重复调用: 工具 ${toolCall.name} 在短时间内重复调用次数过多`,
+                      },
+                    },
+                  ],
+                })
+                continue
+              }
+
               const result = await toolDef.execute(toolCall.arguments)
 
-              // 添加 tool result 消息
+              toolCallHistory.push({
+                toolName: toolCall.name,
+                args,
+                timestamp: Date.now(),
+              })
+
               Session.addMessage(input.sessionId, {
                 role: 'tool',
                 content: JSON.stringify(result),
@@ -175,7 +234,6 @@ export namespace SessionProcessor {
                 ],
               })
             } catch (error) {
-              // 工具执行失败,添加错误结果
               const errorMessage = error instanceof Error ? error.message : String(error)
               Session.addMessage(input.sessionId, {
                 role: 'tool',

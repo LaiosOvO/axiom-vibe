@@ -39,7 +39,11 @@ describe('DesktopApp.Config', () => {
 
   test('generateTauriConfig 生成正确格式', () => {
     const appConfig = DesktopApp.getDefaultConfig()
-    const tauriConfig = DesktopApp.generateTauriConfig(appConfig)
+    const tauriConfig = DesktopApp.generateTauriConfig(appConfig) as {
+      window: { title: string; width: number; height: number }
+      server: { port: number }
+      theme: string
+    }
     expect(tauriConfig).toHaveProperty('window')
     expect(tauriConfig.window).toHaveProperty('title', 'Axiom')
     expect(tauriConfig.window).toHaveProperty('width', 1200)

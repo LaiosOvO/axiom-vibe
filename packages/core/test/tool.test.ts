@@ -87,7 +87,7 @@ describe('ToolRegistry', () => {
     ToolRegistry.register(upper)
 
     const tools = ToolRegistry.list()
-    expect(tools.length).toBe(10)
+    expect(tools.length).toBe(11)
     const names = tools.map((t) => t.name).sort()
     expect(names).toContain('echo')
     expect(names).toContain('upper')

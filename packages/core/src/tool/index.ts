@@ -261,6 +261,47 @@ function registerBuiltinTools(): void {
     },
   })
 
+  const research = Tool.define({
+    name: 'research',
+    description: '深度研究 - 克隆参考项目并分析其结构和功能模块，生成参考文档到 ref/ 目录',
+    parameters: z.object({
+      url: z.string().describe('Git 仓库 URL'),
+      name: z.string().optional().describe('自定义项目名称'),
+      features: z.array(z.string()).default([]).describe('需要分析的功能列表'),
+    }),
+    result: z.object({
+      project: z.string(),
+      summaryPath: z.string(),
+      modulesCount: z.number(),
+      structure: z.string(),
+    }),
+    execute: async (params) => {
+      const { Research } = await import('../research')
+      const projectRoot = process.cwd()
+
+      // 1. 克隆项目
+      const refProject = await Research.cloneProject(projectRoot, params.url, params.name)
+
+      // 2. 分析并生成参考文档
+      const features =
+        params.features.length > 0
+          ? params.features
+          : ['config', 'session', 'tool', 'agent', 'provider']
+
+      const doc = await Research.generateRefDocument(projectRoot, refProject, features)
+
+      // 3. 保存文档
+      const summaryPath = await Research.saveRefDocument(projectRoot, doc)
+
+      return {
+        project: refProject.name,
+        summaryPath,
+        modulesCount: doc.modules.length,
+        structure: doc.structure.slice(0, 2000), // 截断长结构
+      }
+    },
+  })
+
   ToolRegistry.register(read)
   ToolRegistry.register(write)
   ToolRegistry.register(bash)
@@ -269,6 +310,7 @@ function registerBuiltinTools(): void {
   ToolRegistry.register(edit)
   ToolRegistry.register(ls)
   ToolRegistry.register(webfetch)
+  ToolRegistry.register(research)
 }
 
 registerBuiltinTools()
