@@ -193,32 +193,41 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
           content: result.message,
         })
 
-        // 处理命令动作
         if (result.action === 'quit') {
           props.onExit?.()
         } else if (result.action === 'navigate-home') {
           navigate({ type: 'home' })
+        } else if (result.action === 'template' && result.template) {
+          sendToLLM(sess, result.template)
         }
       }
       return
     }
 
-    // 添加用户消息
     Session.addMessage(sess.id, {
       role: 'user',
       content: text,
     })
+
+    sendToLLM(sess)
+  }
+
+  const sendToLLM = async (
+    sess: NonNullable<ReturnType<typeof Session.get>>,
+    extraUserContent?: string,
+  ) => {
+    if (extraUserContent) {
+      Session.addMessage(sess.id, { role: 'user', content: extraUserContent })
+    }
 
     setIsProcessing(true)
     setStreamingText('')
     setError(undefined)
 
     try {
-      // 解析 modelId
       const { providerId, modelName } = AiAdapter.parseModelId(sess.modelId)
       const model = ProviderFactory.getLanguageModel(providerId, modelName)
 
-      // 构建工具列表，包装 execute 函数以支持用户确认
       const allTools = ToolRegistry.list()
       const tools: Record<
         string,
@@ -235,20 +244,17 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
           description: tool.description,
           parameters: tool.parameters,
           execute: async (args: unknown) => {
-            // 检查是否需要用户确认
             if (needsConfirmation(tool.name)) {
               const allowed = await requestToolConfirmation(tool.name, crypto.randomUUID(), args)
               if (!allowed) {
                 throw new Error(`工具 ${tool.name} 被用户拒绝`)
               }
             }
-            // 执行工具
             return originalExecute(args)
           },
         }
       }
 
-      // 流式调用 LLM
       let currentAssistantMessage = ''
       const toolCalls: Array<{ id: string; name: string; arguments: unknown }> = []
 
@@ -276,11 +282,9 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
             break
 
           case 'tool-result':
-            // 工具执行完成
             break
 
           case 'finish':
-            // 添加助手消息
             Session.addMessage(sess.id, {
               role: 'assistant',
               content: currentAssistantMessage || '(无响应)',

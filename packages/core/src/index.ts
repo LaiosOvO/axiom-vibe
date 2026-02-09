@@ -56,6 +56,10 @@ export async function main() {
     process.exit(0)
   }
 
+  // 异步初始化 Provider（从 models.dev 加载完整模型数据）
+  // 不阻塞启动 — 失败时使用 fallback
+  Provider.init().catch(() => {})
+
   // 默认启动 TUI
   if (!command) {
     await handleTui()

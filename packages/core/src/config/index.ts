@@ -4,6 +4,47 @@ import { join } from 'node:path'
 import { z } from 'zod'
 
 export namespace Config {
+  export const ProviderModelConfig = z.object({
+    name: z.string().optional(),
+    api: z
+      .object({
+        id: z.string().optional(),
+        url: z.string().optional(),
+        npm: z.string().optional(),
+      })
+      .optional(),
+    cost: z
+      .object({
+        input: z.number().optional(),
+        output: z.number().optional(),
+      })
+      .optional(),
+    limit: z
+      .object({
+        context: z.number().optional(),
+        output: z.number().optional(),
+      })
+      .optional(),
+  })
+  export type ProviderModelConfig = z.infer<typeof ProviderModelConfig>
+
+  export const ProviderConfig = z.object({
+    name: z.string().optional(),
+    env: z.array(z.string()).optional(),
+    options: z
+      .object({
+        apiKey: z.string().optional(),
+        baseURL: z.string().optional(),
+        timeout: z.number().optional(),
+      })
+      .catchall(z.unknown())
+      .optional(),
+    models: z.record(z.string(), ProviderModelConfig).optional(),
+    whitelist: z.array(z.string()).optional(),
+    blacklist: z.array(z.string()).optional(),
+  })
+  export type ProviderConfig = z.infer<typeof ProviderConfig>
+
   export const Info = z
     .object({
       provider: z
@@ -11,6 +52,9 @@ export namespace Config {
           default: z.string(),
         })
         .default({ default: 'anthropic' }),
+      providers: z.record(z.string(), ProviderConfig).default({}),
+      disabledProviders: z.array(z.string()).default([]),
+      enabledProviders: z.array(z.string()).default([]),
       agent: z
         .object({
           default: z.string(),
@@ -40,6 +84,9 @@ export namespace Config {
     })
     .default({
       provider: { default: 'anthropic' },
+      providers: {},
+      disabledProviders: [],
+      enabledProviders: [],
       agent: { default: 'orchestrator' },
       spec: { dir: 'specs' },
       growth: { enabled: true },

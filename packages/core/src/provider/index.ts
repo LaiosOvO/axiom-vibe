@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Config } from '../config'
 import { ProviderFactory } from './llm'
 import { ModelsDev } from './models'
 
@@ -601,29 +602,168 @@ export namespace Provider {
   initFallbacks()
 
   /**
-   * 从 models.dev 异步初始化完整模型数据
+   * 从 models.dev 异步初始化完整模型数据，并合并用户配置的 providers
    * 成功后覆盖 fallback 数据；失败保留 fallback
    */
   export async function init(): Promise<void> {
     try {
       const modelsDevData = await ModelsDev.get()
-      if (Object.keys(modelsDevData).length === 0) return
+      if (Object.keys(modelsDevData).length > 0) {
+        registry.clear()
 
-      registry.clear()
+        for (const [providerId, provider] of Object.entries(modelsDevData)) {
+          const info = fromModelsDevProvider(provider)
+          registry.set(providerId, info)
+        }
 
-      for (const [providerId, provider] of Object.entries(modelsDevData)) {
-        const info = fromModelsDevProvider(provider)
-        registry.set(providerId, info)
-      }
-
-      // 确保 fallback 中有但 models.dev 没有的 provider 也保留
-      for (const fallback of FALLBACK_PROVIDERS) {
-        if (!registry.has(fallback.id)) {
-          registry.set(fallback.id, fallback)
+        for (const fallback of FALLBACK_PROVIDERS) {
+          if (!registry.has(fallback.id)) {
+            registry.set(fallback.id, fallback)
+          }
         }
       }
     } catch {
       // models.dev 不可用，保留 fallback
+    }
+
+    applyConfigProviders()
+  }
+
+  function deepMerge<T extends Record<string, unknown>>(
+    target: T,
+    source: Record<string, unknown>,
+  ): T {
+    const result = { ...target } as Record<string, unknown>
+    for (const key of Object.keys(source)) {
+      const sv = source[key]
+      const tv = result[key]
+      if (
+        tv &&
+        typeof tv === 'object' &&
+        !Array.isArray(tv) &&
+        sv &&
+        typeof sv === 'object' &&
+        !Array.isArray(sv)
+      ) {
+        result[key] = deepMerge(tv as Record<string, unknown>, sv as Record<string, unknown>)
+      } else if (sv !== undefined) {
+        result[key] = sv
+      }
+    }
+    return result as T
+  }
+
+  function applyConfigProviders(): void {
+    let config: Config.Info
+    try {
+      config = Config.load({ projectDir: process.cwd() })
+    } catch {
+      return
+    }
+
+    for (const [providerId, providerConfig] of Object.entries(config.providers)) {
+      const existing = registry.get(providerId)
+      if (existing) {
+        if (providerConfig.options?.baseURL) {
+          for (const model of Object.values(existing.models)) {
+            model.api.url = providerConfig.options.baseURL
+          }
+        }
+        if (providerConfig.models) {
+          for (const [modelId, modelConfig] of Object.entries(providerConfig.models)) {
+            const existingModel = existing.models[modelId]
+            if (existingModel) {
+              if (modelConfig.name) existingModel.name = modelConfig.name
+              if (modelConfig.api) {
+                existingModel.api = deepMerge(
+                  existingModel.api,
+                  modelConfig.api as Record<string, unknown>,
+                )
+              }
+              if (modelConfig.limit) {
+                existingModel.limit = deepMerge(
+                  existingModel.limit as unknown as Record<string, unknown>,
+                  modelConfig.limit as Record<string, unknown>,
+                ) as typeof existingModel.limit
+              }
+            } else {
+              existing.models[modelId] = mkModel(
+                modelId,
+                providerId,
+                modelConfig.name ?? modelId,
+                modelConfig.api?.url ??
+                  existing.models[Object.keys(existing.models)[0] ?? '']?.api.url ??
+                  '',
+                modelConfig.api?.npm ??
+                  existing.models[Object.keys(existing.models)[0] ?? '']?.api.npm ??
+                  '@ai-sdk/openai-compatible',
+                {
+                  context: modelConfig.limit?.context,
+                  output: modelConfig.limit?.output,
+                  costIn: modelConfig.cost?.input,
+                  costOut: modelConfig.cost?.output,
+                },
+              )
+            }
+          }
+        }
+        if (providerConfig.whitelist) {
+          const allowed = new Set(providerConfig.whitelist)
+          for (const modelId of Object.keys(existing.models)) {
+            if (!allowed.has(modelId)) delete existing.models[modelId]
+          }
+        }
+        if (providerConfig.blacklist) {
+          for (const modelId of providerConfig.blacklist) {
+            delete existing.models[modelId]
+          }
+        }
+        if (providerConfig.name) existing.name = providerConfig.name
+        if (providerConfig.env) existing.env = providerConfig.env
+        registry.set(providerId, existing)
+      } else {
+        const models: Record<string, Model> = {}
+        const baseUrl = providerConfig.options?.baseURL ?? ''
+        const baseNpm = '@ai-sdk/openai-compatible'
+        if (providerConfig.models) {
+          for (const [modelId, modelConfig] of Object.entries(providerConfig.models)) {
+            models[modelId] = mkModel(
+              modelId,
+              providerId,
+              modelConfig.name ?? modelId,
+              modelConfig.api?.url ?? baseUrl,
+              modelConfig.api?.npm ?? baseNpm,
+              {
+                context: modelConfig.limit?.context,
+                output: modelConfig.limit?.output,
+                costIn: modelConfig.cost?.input,
+                costOut: modelConfig.cost?.output,
+              },
+            )
+          }
+        }
+        registry.set(providerId, {
+          id: providerId,
+          name: providerConfig.name ?? providerId,
+          source: 'config',
+          env: providerConfig.env ?? [],
+          options: providerConfig.options ?? {},
+          models,
+        })
+      }
+    }
+
+    if (config.disabledProviders.length > 0) {
+      for (const id of config.disabledProviders) {
+        registry.delete(id)
+      }
+    }
+
+    if (config.enabledProviders.length > 0) {
+      const enabled = new Set(config.enabledProviders)
+      for (const id of [...registry.keys()]) {
+        if (!enabled.has(id)) registry.delete(id)
+      }
     }
   }
 
