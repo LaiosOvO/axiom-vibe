@@ -176,7 +176,7 @@ describe('Server', () => {
         expect(provider).toHaveProperty('id')
         expect(provider).toHaveProperty('name')
         expect(provider).toHaveProperty('models')
-        expect(Array.isArray(provider.models)).toBe(true)
+        expect(typeof provider.models).toBe('object')
       }
     })
   })

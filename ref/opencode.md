@@ -7,7 +7,7 @@
 | 字段 | 值 |
 |------|---|
 | 项目名 | opencode |
-| 路径 | /Volumes/T7/.../agent/opencode/ |
+| 本地路径 | /Volumes/T7/workspace/company/ai/ai_roadmap/self-dev/tui/laios-tui/agent/opencode |
 | 语言 | TypeScript |
 | 运行时 | Bun 1.3.5 |
 | 定位 | 开源 AI 编码 Agent（Claude Code 替代品） |

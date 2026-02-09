@@ -59,9 +59,35 @@ export const Home: Component<{ onExit?: () => void }> = (props) => {
     }
   })
 
+  const getDefaultModelId = (): string => {
+    const preferred = [
+      'moonshot',
+      'dashscope',
+      'zhipu',
+      'anthropic',
+      'openai',
+      'google',
+      'groq',
+      'deepseek',
+    ]
+    for (const pid of preferred) {
+      const p = availableProviders.find((pr) => pr.id === pid)
+      const names = p ? Object.keys(p.models) : []
+      if (p && names.length > 0) {
+        return `${p.id}/${names[0]}`
+      }
+    }
+    if (availableProviders.length > 0 && availableProviders[0]) {
+      const p = availableProviders[0]
+      const names = Object.keys(p.models)
+      return `${p.id}/${names[0]}`
+    }
+    return 'moonshot/moonshot-v1-128k'
+  }
+
   const handleSubmit = (text: string) => {
     const agent = agents.find((a) => a.id === selectedAgent())
-    const modelId = agent?.model ?? 'anthropic/claude-3-5-sonnet-20241022'
+    const modelId = agent?.model ?? getDefaultModelId()
     const agentId = agent?.id
 
     const session = Session.create({
@@ -130,7 +156,7 @@ export const Home: Component<{ onExit?: () => void }> = (props) => {
           <For each={availableProviders.slice(0, 3)}>
             {(provider) => (
               <text fg="#ffffff" marginLeft={2}>
-                • {provider.name} ({provider.models[0]})
+                • {provider.name} ({Object.keys(provider.models)[0]})
               </text>
             )}
           </For>

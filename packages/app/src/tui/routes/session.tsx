@@ -2,6 +2,7 @@
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { type Component, For, Show, createSignal } from 'solid-js'
 import { Agent } from '../../../../core/src/agent'
+import { Command } from '../../../../core/src/command'
 import { AiAdapter } from '../../../../core/src/provider/adapter'
 import { ProviderFactory } from '../../../../core/src/provider/llm'
 import { Session } from '../../../../core/src/session/index'
@@ -33,6 +34,10 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
   const [error, setError] = createSignal<string | undefined>()
   const [pendingToolCall, setPendingToolCall] = createSignal<ToolCallState | undefined>()
   const [alwaysAllowTools, setAlwaysAllowTools] = createSignal<Set<string>>(new Set())
+  const [commandSuggestions, setCommandSuggestions] = createSignal<Command.Def[]>([])
+  const [inputValue, setInputValue] = createSignal('')
+  const [inputHistory, setInputHistory] = createSignal<string[]>([])
+  const [historyIndex, setHistoryIndex] = createSignal(-1)
 
   // 获取当前会话
   const sessionId = () => {
@@ -111,55 +116,88 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
     })
   }
 
-  // 处理消息提交
+  const handleInputChange = (text: string) => {
+    setInputValue(text)
+    setHistoryIndex(-1)
+    if (text.startsWith('/')) {
+      const suggestions = Command.filterByPrefix(text)
+      setCommandSuggestions(suggestions)
+    } else {
+      setCommandSuggestions([])
+    }
+  }
+
+  // Tab 补全：选中第一个匹配的命令
+  const handleTab = (): string | undefined => {
+    const suggestions = commandSuggestions()
+    if (suggestions.length > 0 && suggestions[0]) {
+      const completed = `/${suggestions[0].name} `
+      setCommandSuggestions([])
+      return completed
+    }
+    return undefined
+  }
+
+  // 上箭头：浏览输入历史
+  const handleArrowUp = (): string | undefined => {
+    const history = inputHistory()
+    if (history.length === 0) return undefined
+    const newIndex = Math.min(historyIndex() + 1, history.length - 1)
+    setHistoryIndex(newIndex)
+    return history[newIndex]
+  }
+
+  // 下箭头：浏览输入历史
+  const handleArrowDown = (): string | undefined => {
+    const newIndex = historyIndex() - 1
+    if (newIndex < 0) {
+      setHistoryIndex(-1)
+      return ''
+    }
+    setHistoryIndex(newIndex)
+    return inputHistory()[newIndex] ?? ''
+  }
+
+  // 把提交的文本加入历史
+  const addToHistory = (text: string) => {
+    const history = inputHistory()
+    if (history[0] === text) return
+    setInputHistory([text, ...history].slice(0, 50))
+  }
+
   const handleSubmit = async (text: string) => {
     const sess = session()
     if (!sess || isProcessing()) return
 
-    if (text.startsWith('/agent')) {
-      const parts = text.trim().split(/\s+/)
-      const agentId = parts[1]
+    addToHistory(text)
+    setHistoryIndex(-1)
+    setCommandSuggestions([])
+    setInputValue('')
 
+    // 检查是否是命令
+    if (text.startsWith('/')) {
       Session.addMessage(sess.id, {
         role: 'user',
         content: text,
       })
 
-      if (!agentId) {
-        const currentAgentId = sess.agentId || 'build'
-        const currentAgent = Agent.getAgentDef(currentAgentId)
-        const allAgents = Agent.listAgentDefs()
+      const result = await Command.execute(text, {
+        sessionId: sess.id,
+        currentAgent: sess.agentId,
+        currentModel: sess.modelId,
+      })
 
-        const agentList = allAgents.map((a) => `  • ${a.id}: ${a.name}`).join('\n')
-        const systemMessage = `当前 Agent: ${currentAgent?.name ?? currentAgentId}\n\n可用 Agents:\n${agentList}\n\n使用 /agent <id> 切换 Agent`
-
+      if (result) {
         Session.addMessage(sess.id, {
           role: 'assistant',
-          content: systemMessage,
+          content: result.message,
         })
-      } else {
-        const agent = Agent.getAgentDef(agentId)
-        if (!agent) {
-          const allAgents = Agent.listAgentDefs()
-          const agentList = allAgents.map((a) => `  • ${a.id}: ${a.name}`).join('\n')
-          const errorMessage = `❌ Agent "${agentId}" 不存在\n\n可用 Agents:\n${agentList}`
 
-          Session.addMessage(sess.id, {
-            role: 'assistant',
-            content: errorMessage,
-          })
-        } else {
-          sess.agentId = agentId
-
-          const successMessage = `✅ 已切换到 Agent: ${agent.name}`
-          Session.addMessage(sess.id, {
-            role: 'assistant',
-            content: successMessage,
-          })
-
-          Session.save(sess.id).catch((error) => {
-            console.error('保存会话失败:', error)
-          })
+        // 处理命令动作
+        if (result.action === 'quit') {
+          props.onExit?.()
+        } else if (result.action === 'navigate-home') {
+          navigate({ type: 'home' })
         }
       }
       return
@@ -362,9 +400,26 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
               <text fg="#444444">{'─'.repeat(dimensions().width - 4)}</text>
             </box>
 
+            {/* 命令提示 */}
+            <Show when={commandSuggestions().length > 0}>
+              <box flexDirection="column" marginBottom={1}>
+                <text fg="#888888">可用命令:</text>
+                <For each={commandSuggestions()}>
+                  {(cmd) => (
+                    <box flexDirection="row" marginLeft={2}>
+                      <text fg="#00aaff">{cmd.usage}</text>
+                      <text fg="#888888" marginLeft={2}>
+                        - {cmd.description}
+                      </text>
+                    </box>
+                  )}
+                </For>
+              </box>
+            </Show>
+
             {/* 帮助文本 */}
             <box marginBottom={1}>
-              <text fg="#888888">Esc 返回主页 | Ctrl+C 退出</text>
+              <text fg="#888888">Esc 返回主页 | Ctrl+C 退出 | / 显示命令</text>
             </box>
 
             {/* 工具确认对话框 */}
@@ -382,7 +437,15 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
 
             {/* 输入框 */}
             <Show when={!pendingToolCall()}>
-              <Input placeholder="输入消息..." onSubmit={handleSubmit} onExit={props.onExit} />
+              <Input
+                placeholder="输入消息... (/ 显示命令, Tab 补全)"
+                onSubmit={handleSubmit}
+                onExit={props.onExit}
+                onChange={handleInputChange}
+                onTab={handleTab}
+                onArrowUp={handleArrowUp}
+                onArrowDown={handleArrowDown}
+              />
             </Show>
           </>
         )}

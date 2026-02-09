@@ -1,22 +1,63 @@
 /// <reference types="solid-js" />
 import { useKeyboard } from '@opentui/solid'
-import { type Component, createSignal, onMount } from 'solid-js'
+import { type Component, createSignal } from 'solid-js'
 
 interface InputProps {
   placeholder?: string
   onSubmit: (text: string) => void
   onExit?: () => void
+  onChange?: (text: string) => void
+  /** Tab 键回调，返回补全文本则替换当前输入 */
+  onTab?: () => string | undefined
+  /** 上箭头回调，返回历史文本则替换当前输入 */
+  onArrowUp?: () => string | undefined
+  /** 下箭头回调，返回历史文本则替换当前输入 */
+  onArrowDown?: () => string | undefined
 }
 
-// 简单的输入组件
+// 输入组件 — 支持 Tab 补全、上下箭头历史浏览
 export const Input: Component<InputProps> = (props) => {
   const [value, setValue] = createSignal('')
   const [cursorPos, setCursorPos] = createSignal(0)
+
+  // 设置输入值并同步光标和 onChange
+  const setInput = (newValue: string, cursor?: number) => {
+    setValue(newValue)
+    setCursorPos(cursor ?? newValue.length)
+    props.onChange?.(newValue)
+  }
 
   useKeyboard((event) => {
     // Ctrl+C 退出
     if (event.ctrl && event.name === 'c') {
       props.onExit?.()
+      return
+    }
+
+    // Tab 键 — 命令补全
+    if (event.name === 'tab') {
+      const completed = props.onTab?.()
+      if (completed !== undefined) {
+        setInput(completed)
+      }
+      return
+    }
+
+    // 上箭头 — 浏览历史
+    if (event.name === 'up') {
+      const historyText = props.onArrowUp?.()
+      if (historyText !== undefined) {
+        setInput(historyText)
+      }
+      return
+    }
+
+    // 下箭头 — 浏览历史
+    if (event.name === 'down') {
+      const historyText = props.onArrowDown?.()
+      if (historyText !== undefined) {
+        setInput(historyText)
+      }
       return
     }
 
@@ -36,8 +77,10 @@ export const Input: Component<InputProps> = (props) => {
       const pos = cursorPos()
       if (pos > 0) {
         const current = value()
-        setValue(current.slice(0, pos - 1) + current.slice(pos))
+        const newValue = current.slice(0, pos - 1) + current.slice(pos)
+        setValue(newValue)
         setCursorPos(pos - 1)
+        props.onChange?.(newValue)
       }
       return
     }
@@ -47,7 +90,9 @@ export const Input: Component<InputProps> = (props) => {
       const pos = cursorPos()
       const current = value()
       if (pos < current.length) {
-        setValue(current.slice(0, pos) + current.slice(pos + 1))
+        const newValue = current.slice(0, pos) + current.slice(pos + 1)
+        setValue(newValue)
+        props.onChange?.(newValue)
       }
       return
     }
@@ -80,8 +125,10 @@ export const Input: Component<InputProps> = (props) => {
     if (event.sequence && event.sequence.length === 1) {
       const pos = cursorPos()
       const current = value()
-      setValue(current.slice(0, pos) + event.sequence + current.slice(pos))
+      const newValue = current.slice(0, pos) + event.sequence + current.slice(pos)
+      setValue(newValue)
       setCursorPos(pos + 1)
+      props.onChange?.(newValue)
     }
   })
 

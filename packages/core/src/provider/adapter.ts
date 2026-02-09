@@ -39,19 +39,17 @@ export namespace AiAdapter {
    * 创建 provider model string: "providerId:modelName" 格式
    */
   export function createModelId(providerId: string, modelName: string): string {
-    return `${providerId}:${modelName}`
+    return `${providerId}/${modelName}`
   }
 
-  /**
-   * 解析 model string
-   */
   export function parseModelId(modelId: string): {
     providerId: string
     modelName: string
   } {
-    const parts = modelId.split(':')
+    const separator = modelId.includes('/') ? '/' : ':'
+    const parts = modelId.split(separator)
     const providerId = parts[0] ?? ''
-    const modelName = parts.slice(1).join(':')
+    const modelName = parts.slice(1).join(separator)
     return { providerId, modelName }
   }
 

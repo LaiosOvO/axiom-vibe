@@ -160,7 +160,7 @@ describe('CLI 模块', () => {
     const result = Provider.findModel('claude-sonnet-4-20250514')
     expect(result).toBeDefined()
     expect(result?.provider.id).toBe('anthropic')
-    expect(result?.model).toBe('claude-sonnet-4-20250514')
+    expect(result?.model.id).toBe('claude-sonnet-4-20250514')
   })
 
   test('Agent.list 返回内置 Agent', () => {

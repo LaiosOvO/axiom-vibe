@@ -3,7 +3,6 @@ import { Provider } from '../src/provider/index.ts'
 
 describe('Provider', () => {
   beforeEach(() => {
-    // 每个测试前重置状态
     Provider.reset()
   })
 
@@ -13,10 +12,9 @@ describe('Provider', () => {
     expect(anthropic).toBeDefined()
     expect(anthropic?.id).toBe('anthropic')
     expect(anthropic?.name).toBe('Anthropic')
-    expect(anthropic?.models).toBeInstanceOf(Array)
-    expect(anthropic?.models.length).toBeGreaterThan(0)
-    expect(anthropic?.auth.type).toBe('env')
-    expect(anthropic?.auth.envVar).toBe('ANTHROPIC_API_KEY')
+    expect(typeof anthropic?.models).toBe('object')
+    expect(Object.keys(anthropic!.models).length).toBeGreaterThan(0)
+    expect(anthropic?.env).toContain('ANTHROPIC_API_KEY')
   })
 
   it('应该能列出所有注册的 providers (>=15)', () => {
@@ -24,7 +22,6 @@ describe('Provider', () => {
 
     expect(providers.length).toBeGreaterThanOrEqual(15)
 
-    // 验证必须包含的 providers
     const ids = providers.map((p) => p.id)
     expect(ids).toContain('anthropic')
     expect(ids).toContain('openai')
@@ -38,31 +35,53 @@ describe('Provider', () => {
 
     expect(result).toBeDefined()
     expect(result?.provider.id).toBe('anthropic')
-    expect(result?.model).toBe('claude-sonnet-4-20250514')
+    expect(result?.model.id).toBe('claude-sonnet-4-20250514')
   })
 
   it('应该能过滤有 API Key 的 providers', () => {
-    // 设置一个环境变量
     process.env.ANTHROPIC_API_KEY = 'test-key'
 
     const available = Provider.getAvailable()
 
-    // 至少应该有 anthropic（因为我们设置了 key）
     const anthropicAvailable = available.find((p) => p.id === 'anthropic')
     expect(anthropicAvailable).toBeDefined()
 
-    // 清理
     process.env.ANTHROPIC_API_KEY = undefined
   })
 
   it('应该能注册自定义 provider', () => {
-    const customProvider = {
+    const customProvider: Provider.Info = {
       id: 'custom',
       name: 'Custom Provider',
-      models: ['custom-model-1', 'custom-model-2'],
-      auth: {
-        type: 'env' as const,
-        envVar: 'CUSTOM_API_KEY',
+      source: 'config',
+      env: ['CUSTOM_API_KEY'],
+      options: {},
+      models: {
+        'custom-model-1': {
+          id: 'custom-model-1',
+          providerID: 'custom',
+          api: {
+            id: 'custom-model-1',
+            url: 'https://custom.api/v1',
+            npm: '@ai-sdk/openai-compatible',
+          },
+          name: 'Custom Model 1',
+          capabilities: {
+            temperature: true,
+            reasoning: false,
+            attachment: false,
+            toolcall: true,
+            input: { text: true, audio: false, image: false, video: false, pdf: false },
+            output: { text: true, audio: false, image: false, video: false, pdf: false },
+            interleaved: false,
+          },
+          cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+          limit: { context: 128000, output: 4096 },
+          status: 'active',
+          options: {},
+          headers: {},
+          release_date: '2024-01-01',
+        },
       },
     }
 
@@ -71,13 +90,12 @@ describe('Provider', () => {
     const retrieved = Provider.get('custom')
     expect(retrieved).toBeDefined()
     expect(retrieved?.id).toBe('custom')
-    expect(retrieved?.models).toEqual(['custom-model-1', 'custom-model-2'])
+    expect(Object.keys(retrieved!.models)).toEqual(['custom-model-1'])
   })
 
   it('应该验证 provider schema', () => {
     const invalidProvider = {
       id: 'invalid',
-      // 缺少必需的字段
     }
 
     expect(() => {
@@ -96,13 +114,34 @@ describe('Provider', () => {
   })
 
   it('reset 应该清除所有自定义注册，保留内置', () => {
-    const customProvider = {
+    const customProvider: Provider.Info = {
       id: 'temp',
       name: 'Temp Provider',
-      models: ['temp-model'],
-      auth: {
-        type: 'env' as const,
-        envVar: 'TEMP_API_KEY',
+      source: 'config',
+      env: ['TEMP_API_KEY'],
+      options: {},
+      models: {
+        'temp-model': {
+          id: 'temp-model',
+          providerID: 'temp',
+          api: { id: 'temp-model', url: 'https://temp.api/v1', npm: '@ai-sdk/openai-compatible' },
+          name: 'Temp Model',
+          capabilities: {
+            temperature: true,
+            reasoning: false,
+            attachment: false,
+            toolcall: true,
+            input: { text: true, audio: false, image: false, video: false, pdf: false },
+            output: { text: true, audio: false, image: false, video: false, pdf: false },
+            interleaved: false,
+          },
+          cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+          limit: { context: 128000, output: 4096 },
+          status: 'active',
+          options: {},
+          headers: {},
+          release_date: '2024-01-01',
+        },
       },
     }
 
@@ -111,10 +150,28 @@ describe('Provider', () => {
 
     Provider.reset()
 
-    // 自定义应该被清除
     expect(Provider.get('temp')).toBeUndefined()
-
-    // 内置应该还在
     expect(Provider.get('anthropic')).toBeDefined()
+  })
+
+  it('Model 应该包含完整的 capabilities/cost/limit', () => {
+    const anthropic = Provider.get('anthropic')
+    const model = anthropic?.models['claude-sonnet-4-20250514']
+
+    expect(model).toBeDefined()
+    expect(model?.capabilities.reasoning).toBe(true)
+    expect(model?.capabilities.toolcall).toBe(true)
+    expect(model?.capabilities.input.text).toBe(true)
+    expect(model?.cost.input).toBeGreaterThan(0)
+    expect(model?.limit.context).toBeGreaterThan(0)
+    expect(model?.status).toBe('active')
+    expect(model?.api.npm).toBe('@ai-sdk/anthropic')
+  })
+
+  it('辅助方法应正常工作', () => {
+    const anthropic = Provider.get('anthropic')!
+    expect(Provider.getFirstModelName(anthropic)).toBeDefined()
+    expect(Provider.getModelCount(anthropic)).toBeGreaterThan(0)
+    expect(Provider.getModelNames(anthropic).length).toBeGreaterThan(0)
   })
 })

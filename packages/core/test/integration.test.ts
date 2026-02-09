@@ -279,9 +279,9 @@ describe('M6 全链路集成测试', () => {
 
       const providerInfo = Provider.get(defaultProvider)
       expect(providerInfo).toBeDefined()
-      expect(providerInfo!.models.length).toBeGreaterThan(0)
+      expect(Object.keys(providerInfo!.models).length).toBeGreaterThan(0)
 
-      const modelId = `${defaultProvider}/${providerInfo!.models[0]}`
+      const modelId = `${defaultProvider}/${Object.keys(providerInfo!.models)[0]}`
       const [providerId, ...modelParts] = modelId.split('/')
       const modelName = modelParts.join('/')
 

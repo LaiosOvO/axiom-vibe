@@ -3,6 +3,7 @@
 
 import { Agent } from './agent'
 import { AgentRunner } from './agent/runner'
+import { Command } from './command'
 import { Config } from './config'
 import { LspClient } from './lsp/client'
 import { McpClient } from './mcp/client'
@@ -27,6 +28,7 @@ export {
   ProviderFactory,
   Agent,
   AgentRunner,
+  Command,
   Config,
   LLM,
   SessionProcessor,
@@ -160,10 +162,11 @@ export async function handleRun(args: string[]) {
     } else {
       const defaultProvider = config.provider.default
       const providerInfo = Provider.get(defaultProvider)
-      if (!providerInfo || providerInfo.models.length === 0) {
+      const modelNames = providerInfo ? Provider.getModelNames(providerInfo) : []
+      if (!providerInfo || modelNames.length === 0) {
         throw new Error(`Provider ${defaultProvider} 没有可用模型`)
       }
-      modelId = `${defaultProvider}/${providerInfo.models[0]}`
+      modelId = `${defaultProvider}/${modelNames[0]}`
     }
 
     const [providerId, ...modelParts] = modelId.split('/')
@@ -317,7 +320,6 @@ export async function handleOrchestrate(args: string[]) {
     const { Storage } = await import('./storage')
     Storage.init(dataDir)
 
-    // 获取模型
     const modelIdFromEnv = process.env.AXIOM_MODEL
     let modelId: string
 
@@ -326,10 +328,11 @@ export async function handleOrchestrate(args: string[]) {
     } else {
       const defaultProvider = config.provider.default
       const providerInfo = Provider.get(defaultProvider)
-      if (!providerInfo || providerInfo.models.length === 0) {
+      const modelNames = providerInfo ? Provider.getModelNames(providerInfo) : []
+      if (!providerInfo || modelNames.length === 0) {
         throw new Error(`Provider ${defaultProvider} 没有可用模型`)
       }
-      modelId = `${defaultProvider}/${providerInfo.models[0]}`
+      modelId = `${defaultProvider}/${modelNames[0]}`
     }
 
     const [providerId, ...modelParts] = modelId.split('/')

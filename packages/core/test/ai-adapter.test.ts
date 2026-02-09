@@ -5,12 +5,12 @@ describe('AiAdapter', () => {
   describe('createModelId', () => {
     it('正确拼接 providerId 和 modelName', () => {
       const result = AiAdapter.createModelId('openai', 'gpt-4o')
-      expect(result).toBe('openai:gpt-4o')
+      expect(result).toBe('openai/gpt-4o')
     })
 
     it('处理含特殊字符的 modelName', () => {
       const result = AiAdapter.createModelId('anthropic', 'claude-sonnet-4-20250514')
-      expect(result).toBe('anthropic:claude-sonnet-4-20250514')
+      expect(result).toBe('anthropic/claude-sonnet-4-20250514')
     })
   })
 
