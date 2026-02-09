@@ -1,5 +1,5 @@
 import { generateText, jsonSchema, streamText, tool } from 'ai'
-import type { CoreMessage, LanguageModel } from 'ai'
+import type { LanguageModel, ModelMessage } from 'ai'
 
 /**
  * LLM 命名空间 - 封装 Vercel AI SDK 的流式调用
@@ -63,8 +63,8 @@ export namespace LLM {
    */
   export async function* stream(input: StreamInput): AsyncGenerator<StreamEvent> {
     try {
-      // 转换消息格式: Session.Message -> CoreMessage
-      const coreMessages: CoreMessage[] = input.messages.map((msg) => ({
+      // 转换消息格式: Session.Message -> ModelMessage
+      const coreMessages: ModelMessage[] = input.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       }))
@@ -153,7 +153,7 @@ export namespace LLM {
    */
   export async function generate(input: Omit<StreamInput, 'abortSignal'>): Promise<GenerateResult> {
     // 转换消息格式
-    const coreMessages: CoreMessage[] = input.messages.map((msg) => ({
+    const coreMessages: ModelMessage[] = input.messages.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }))

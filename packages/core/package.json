@@ -11,8 +11,11 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "minimatch": "^11.0.0"
+  },
   "devDependencies": {
+    "@types/minimatch": "^5.1.2",
     "typescript": "5.8.2"
   }
 }

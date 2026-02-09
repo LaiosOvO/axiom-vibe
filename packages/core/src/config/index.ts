@@ -33,7 +33,7 @@ export namespace Config {
           temperature: z.number(),
         })
         .default({
-          default: 'anthropic/claude-3-5-sonnet-20241022',
+          default: 'anthropic/claude-sonnet-4-20250514',
           maxOutputTokens: 16384,
           temperature: 0,
         }),
@@ -44,7 +44,7 @@ export namespace Config {
       spec: { dir: 'specs' },
       growth: { enabled: true },
       model: {
-        default: 'anthropic/claude-3-5-sonnet-20241022',
+        default: 'anthropic/claude-sonnet-4-20250514',
         maxOutputTokens: 16384,
         temperature: 0,
       },

@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { SpecEngine } from '../src/spec'
 
 describe('SpecEngine', () => {
@@ -234,6 +237,261 @@ updated: 2025-02-09T11:00:00Z
       expect(() => {
         SpecEngine.parseFrontmatter(content)
       }).toThrow()
+    })
+  })
+
+  describe('SpecEngine - File Operations', () => {
+    let testDir: string
+
+    beforeEach(async () => {
+      testDir = await mkdtemp(join(tmpdir(), 'spec-test-'))
+    })
+
+    afterEach(async () => {
+      await rm(testDir, { recursive: true, force: true })
+    })
+
+    describe('init', () => {
+      it('创建 openspec 目录结构', async () => {
+        await SpecEngine.init(testDir)
+
+        const { existsSync } = await import('node:fs')
+        expect(existsSync(join(testDir, 'openspec'))).toBe(true)
+        expect(existsSync(join(testDir, 'openspec', 'specs'))).toBe(true)
+        expect(existsSync(join(testDir, 'openspec', 'changes'))).toBe(true)
+        expect(existsSync(join(testDir, 'openspec', 'project.md'))).toBe(true)
+      })
+    })
+
+    describe('createChange', () => {
+      it('创建新的变更提案', async () => {
+        await SpecEngine.init(testDir)
+        const change = await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+
+        expect(change.name).toBe('test-change')
+        expect(change.phase).toBe('proposal')
+        expect(change.proposal).toContain('test-change')
+        expect(change.proposal).toContain('测试变更')
+
+        const { existsSync } = await import('node:fs')
+        expect(existsSync(join(testDir, 'openspec', 'changes', 'test-change', 'proposal.md'))).toBe(
+          true,
+        )
+      })
+    })
+
+    describe('getChange', () => {
+      it('获取存在的变更', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+
+        const change = await SpecEngine.getChange(testDir, 'test-change')
+
+        expect(change).not.toBeUndefined()
+        expect(change?.name).toBe('test-change')
+        expect(change?.phase).toBe('proposal')
+      })
+
+      it('获取不存在的变更返回 undefined', async () => {
+        await SpecEngine.init(testDir)
+        const change = await SpecEngine.getChange(testDir, 'non-existent')
+        expect(change).toBeUndefined()
+      })
+    })
+
+    describe('listChanges', () => {
+      it('列出所有变更', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'change-1', '变更1')
+        await SpecEngine.createChange(testDir, 'change-2', '变更2')
+
+        const changes = await SpecEngine.listChanges(testDir)
+
+        expect(changes.length).toBe(2)
+        expect(changes.some((c) => c.name === 'change-1')).toBe(true)
+        expect(changes.some((c) => c.name === 'change-2')).toBe(true)
+      })
+
+      it('空目录返回空数组', async () => {
+        const changes = await SpecEngine.listChanges(testDir)
+        expect(changes.length).toBe(0)
+      })
+    })
+
+    describe('advancePhase', () => {
+      it('从 proposal 推进到 definition', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+
+        const newPhase = await SpecEngine.advancePhase(testDir, 'test-change')
+
+        expect(newPhase).toBe('definition')
+
+        const { existsSync } = await import('node:fs')
+        expect(existsSync(join(testDir, 'openspec', 'changes', 'test-change', 'design.md'))).toBe(
+          true,
+        )
+      })
+
+      it('从 definition 推进到 apply', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+        await SpecEngine.advancePhase(testDir, 'test-change')
+
+        const newPhase = await SpecEngine.advancePhase(testDir, 'test-change')
+
+        expect(newPhase).toBe('apply')
+
+        const { existsSync } = await import('node:fs')
+        expect(existsSync(join(testDir, 'openspec', 'changes', 'test-change', 'tasks.md'))).toBe(
+          true,
+        )
+      })
+
+      it('从 apply 推进到 archive', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+        await SpecEngine.advancePhase(testDir, 'test-change')
+        await SpecEngine.advancePhase(testDir, 'test-change')
+
+        const newPhase = await SpecEngine.advancePhase(testDir, 'test-change')
+
+        expect(newPhase).toBe('archive')
+
+        const { existsSync } = await import('node:fs')
+        expect(existsSync(join(testDir, 'openspec', 'changes', 'test-change', 'specs'))).toBe(true)
+      })
+    })
+
+    describe('writeDesign', () => {
+      it('写入设计文档', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+
+        await SpecEngine.writeDesign(testDir, 'test-change', '# 设计文档\n\n详细设计')
+
+        const { readFile } = await import('node:fs/promises')
+        const content = await readFile(
+          join(testDir, 'openspec', 'changes', 'test-change', 'design.md'),
+          'utf-8',
+        )
+        expect(content).toContain('设计文档')
+        expect(content).toContain('详细设计')
+      })
+    })
+
+    describe('parseTasks', () => {
+      it('解析待办任务', async () => {
+        const content = `# Tasks
+
+- [ ] task-1 实现登录功能
+- [x] task-2 设计数据库
+- [ ] task-3 编写测试
+`
+
+        const tasks = await SpecEngine.parseTasks(content)
+
+        expect(tasks.length).toBe(3)
+        expect(tasks[0]?.id).toBe('task-1')
+        expect(tasks[0]?.description).toBe('实现登录功能')
+        expect(tasks[0]?.status).toBe('pending')
+        expect(tasks[1]?.id).toBe('task-2')
+        expect(tasks[1]?.status).toBe('done')
+        expect(tasks[2]?.id).toBe('task-3')
+        expect(tasks[2]?.status).toBe('pending')
+      })
+
+      it('空内容返回空数组', async () => {
+        const tasks = await SpecEngine.parseTasks('')
+        expect(tasks.length).toBe(0)
+      })
+    })
+
+    describe('writeTasks', () => {
+      it('写入任务列表', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+
+        const tasks: SpecEngine.TaskItem[] = [
+          { id: 'task-1', description: '实现功能', status: 'pending' },
+          { id: 'task-2', description: '编写测试', status: 'done' },
+        ]
+
+        await SpecEngine.writeTasks(testDir, 'test-change', tasks)
+
+        const { readFile } = await import('node:fs/promises')
+        const content = await readFile(
+          join(testDir, 'openspec', 'changes', 'test-change', 'tasks.md'),
+          'utf-8',
+        )
+
+        expect(content).toContain('- [ ] task-1 实现功能')
+        expect(content).toContain('- [x] task-2 编写测试')
+      })
+    })
+
+    describe('updateTaskStatus', () => {
+      it('更新任务状态', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+
+        const tasks: SpecEngine.TaskItem[] = [
+          { id: 'task-1', description: '实现功能', status: 'pending' },
+          { id: 'task-2', description: '编写测试', status: 'pending' },
+        ]
+        await SpecEngine.writeTasks(testDir, 'test-change', tasks)
+
+        await SpecEngine.updateTaskStatus(testDir, 'test-change', 'task-1', 'done')
+
+        const change = await SpecEngine.getChange(testDir, 'test-change')
+        const task1 = change?.tasks?.find((t) => t.id === 'task-1')
+        expect(task1?.status).toBe('done')
+      })
+    })
+
+    describe('archiveChange', () => {
+      it('归档变更到 archive 目录', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-change', '测试变更')
+
+        await SpecEngine.archiveChange(testDir, 'test-change')
+
+        const { existsSync } = await import('node:fs')
+        expect(existsSync(join(testDir, 'openspec', 'changes', 'test-change'))).toBe(false)
+        expect(existsSync(join(testDir, 'openspec', 'archive', 'test-change'))).toBe(true)
+      })
+    })
+
+    describe('listSpecs', () => {
+      it('列出所有 spec', async () => {
+        await SpecEngine.init(testDir)
+
+        const { mkdir, writeFile } = await import('node:fs/promises')
+        await mkdir(join(testDir, 'openspec', 'specs', 'spec-1'), { recursive: true })
+        await writeFile(
+          join(testDir, 'openspec', 'specs', 'spec-1', 'spec.md'),
+          '# Spec 1',
+          'utf-8',
+        )
+        await mkdir(join(testDir, 'openspec', 'specs', 'spec-2'), { recursive: true })
+        await writeFile(
+          join(testDir, 'openspec', 'specs', 'spec-2', 'spec.md'),
+          '# Spec 2',
+          'utf-8',
+        )
+
+        const specs = await SpecEngine.listSpecs(testDir)
+
+        expect(specs.length).toBe(2)
+        expect(specs).toContain('spec-1')
+        expect(specs).toContain('spec-2')
+      })
+
+      it('空目录返回空数组', async () => {
+        await SpecEngine.init(testDir)
+        const specs = await SpecEngine.listSpecs(testDir)
+        expect(specs.length).toBe(0)
+      })
     })
   })
 })

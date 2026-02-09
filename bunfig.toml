@@ -1,2 +1,11 @@
 [install]
 registry = "https://registry.npmmirror.com"
+timeout = 300000
+
+[install.scopes]
+"@ai-sdk" = "https://registry.npmmirror.com"
+"@biomejs" = "https://registry.npmmirror.com"
+"@opentui" = "https://registry.npmmirror.com"
+"@tsconfig" = "https://registry.npmmirror.com"
+"@types" = "https://registry.npmmirror.com"
+"@vercel" = "https://registry.npmmirror.com"

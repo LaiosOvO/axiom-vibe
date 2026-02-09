@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Research } from '../src/research'
 
 describe('Research', () => {
@@ -114,5 +117,186 @@ describe('Research', () => {
     expect(summary).toBeDefined()
     expect(summary.topic).toBe('TUI Framework')
     expect(summary.repos.length).toBe(1)
+  })
+})
+
+describe('Research Deep Engine', () => {
+  let testDir: string
+
+  beforeEach(async () => {
+    testDir = join(tmpdir(), `research-test-${Date.now()}`)
+    await mkdir(testDir, { recursive: true })
+  })
+
+  afterEach(async () => {
+    try {
+      await rm(testDir, { recursive: true, force: true })
+    } catch {}
+  })
+
+  it('initRefDir — 创建 ref 和 ref/repos 目录', async () => {
+    await Research.initRefDir(testDir)
+
+    const { stat } = await import('node:fs/promises')
+    const refStat = await stat(join(testDir, 'ref'))
+    const reposStat = await stat(join(testDir, 'ref', 'repos'))
+
+    expect(refStat.isDirectory()).toBe(true)
+    expect(reposStat.isDirectory()).toBe(true)
+  })
+
+  it('analyzeStructure — 返回目录树结构', async () => {
+    const projectDir = join(testDir, 'test-project')
+    await mkdir(join(projectDir, 'src'), { recursive: true })
+    await mkdir(join(projectDir, 'tests'), { recursive: true })
+    await writeFile(join(projectDir, 'src', 'index.ts'), 'export const foo = 1')
+    await writeFile(join(projectDir, 'tests', 'index.test.ts'), 'test()')
+
+    const structure = await Research.analyzeStructure(projectDir)
+
+    expect(structure).toBeDefined()
+    expect(typeof structure).toBe('string')
+    expect(structure).toContain('src')
+    expect(structure).toContain('tests')
+  })
+
+  it('analyzeFiles — 提取文件导出信息', async () => {
+    const projectDir = join(testDir, 'test-project')
+    await mkdir(join(projectDir, 'src'), { recursive: true })
+    await writeFile(
+      join(projectDir, 'src', 'index.ts'),
+      'export function hello() {}\nexport const world = "test"',
+    )
+
+    const files = await Research.analyzeFiles(projectDir)
+
+    expect(files).toBeDefined()
+    expect(Array.isArray(files)).toBe(true)
+    expect(files.length).toBeGreaterThan(0)
+
+    const indexFile = files.find((f) => f.path.includes('index.ts'))
+    expect(indexFile).toBeDefined()
+    expect(indexFile?.exports).toContain('hello')
+    expect(indexFile?.exports).toContain('world')
+  })
+
+  it('generateModuleMapping — 生成功能映射', async () => {
+    const projectDir = join(testDir, 'test-project')
+    await mkdir(join(projectDir, 'src'), { recursive: true })
+    await writeFile(join(projectDir, 'src', 'auth.ts'), 'export function login() {}')
+    await writeFile(join(projectDir, 'src', 'user.ts'), 'export function getUser() {}')
+
+    const mappings = await Research.generateModuleMapping(projectDir, ['auth', 'user'])
+
+    expect(mappings).toBeDefined()
+    expect(Array.isArray(mappings)).toBe(true)
+    expect(mappings.length).toBe(2)
+
+    const authMapping = mappings.find((m) => m.feature === 'auth')
+    expect(authMapping).toBeDefined()
+    expect(authMapping?.sourceFiles.length).toBeGreaterThan(0)
+  })
+
+  it('generateRefDocument — 生成完整参考文档', async () => {
+    const projectDir = join(testDir, 'test-project')
+    await mkdir(join(projectDir, 'src'), { recursive: true })
+    await writeFile(join(projectDir, 'src', 'index.ts'), 'export const foo = 1')
+
+    const project: Research.RefProject = {
+      name: 'test-project',
+      url: 'https://github.com/test/test',
+      localPath: projectDir,
+      clonedAt: Date.now(),
+    }
+
+    const doc = await Research.generateRefDocument(testDir, project, ['index'])
+
+    expect(doc).toBeDefined()
+    expect(doc.project).toBe('test-project')
+    expect(doc.modules).toBeDefined()
+    expect(doc.structure).toBeDefined()
+    expect(doc.generatedAt).toBeGreaterThan(0)
+  })
+
+  it('saveRefDocument — 保存参考文档到文件', async () => {
+    const doc: Research.RefDocument = {
+      project: 'test-project',
+      modules: [
+        {
+          feature: 'auth',
+          sourceFiles: ['src/auth.ts'],
+          description: '认证模块',
+        },
+      ],
+      structure: 'src/\n└── auth.ts',
+      generatedAt: Date.now(),
+    }
+
+    const savedPath = await Research.saveRefDocument(testDir, doc)
+
+    expect(savedPath).toBeDefined()
+    expect(savedPath).toContain('summary.md')
+
+    const { stat } = await import('node:fs/promises')
+    const summaryExists = await stat(join(testDir, 'ref', 'test-project', 'summary.md'))
+    const structureExists = await stat(join(testDir, 'ref', 'test-project', 'structure.md'))
+    const modulesExists = await stat(join(testDir, 'ref', 'test-project', 'modules.md'))
+
+    expect(summaryExists.isFile()).toBe(true)
+    expect(structureExists.isFile()).toBe(true)
+    expect(modulesExists.isFile()).toBe(true)
+  })
+
+  it('listRefProjects — 列出所有参考项目', async () => {
+    await mkdir(join(testDir, 'ref', 'repos', 'project1'), { recursive: true })
+    await mkdir(join(testDir, 'ref', 'repos', 'project2'), { recursive: true })
+
+    const projects = await Research.listRefProjects(testDir)
+
+    expect(projects).toBeDefined()
+    expect(Array.isArray(projects)).toBe(true)
+    expect(projects.length).toBe(2)
+    expect(projects.some((p) => p.name === 'project1')).toBe(true)
+    expect(projects.some((p) => p.name === 'project2')).toBe(true)
+  })
+
+  it('getRefDocument — 获取指定项目的参考文档', async () => {
+    const doc: Research.RefDocument = {
+      project: 'test-project',
+      modules: [],
+      structure: 'src/',
+      generatedAt: Date.now(),
+    }
+
+    await Research.saveRefDocument(testDir, doc)
+
+    const retrieved = await Research.getRefDocument(testDir, 'test-project')
+
+    expect(retrieved).toBeDefined()
+    expect(retrieved?.project).toBe('test-project')
+  })
+
+  it('searchRef — 搜索参考文档中的关键词', async () => {
+    await mkdir(join(testDir, 'ref', 'repos', 'project1'), { recursive: true })
+
+    const doc: Research.RefDocument = {
+      project: 'project1',
+      modules: [
+        {
+          feature: 'authentication',
+          sourceFiles: ['src/auth.ts'],
+          description: '用户认证模块',
+        },
+      ],
+      structure: 'src/',
+      generatedAt: Date.now(),
+    }
+
+    await Research.saveRefDocument(testDir, doc)
+
+    const results = await Research.searchRef(testDir, 'auth')
+
+    expect(results).toBeDefined()
+    expect(Array.isArray(results)).toBe(true)
   })
 })

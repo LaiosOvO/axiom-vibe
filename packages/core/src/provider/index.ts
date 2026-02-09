@@ -20,7 +20,7 @@ export namespace Provider {
     {
       id: 'anthropic',
       name: 'Anthropic',
-      models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+      models: ['claude-sonnet-4-20250514', 'claude-haiku-4-20250514', 'claude-opus-4-20250514'],
       auth: {
         type: 'env',
         envVar: 'ANTHROPIC_API_KEY',
@@ -141,10 +141,7 @@ export namespace Provider {
     {
       id: 'bedrock',
       name: 'AWS Bedrock',
-      models: [
-        'anthropic.claude-3-5-sonnet-20241022-v2:0',
-        'anthropic.claude-3-opus-20240229-v1:0',
-      ],
+      models: ['anthropic.claude-sonnet-4-20250514-v1:0', 'anthropic.claude-opus-4-20250514-v1:0'],
       auth: {
         type: 'env',
         envVar: 'AWS_ACCESS_KEY_ID',

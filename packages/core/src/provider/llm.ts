@@ -96,7 +96,7 @@ export namespace ProviderFactory {
   /**
    * 获取 LanguageModel 实例
    * @param providerId - Provider ID（如 'anthropic', 'openai'）
-   * @param modelName - 模型名称（如 'claude-3-5-sonnet-20241022', 'gpt-4o'）
+   * @param modelName - 模型名称（如 'claude-sonnet-4-20250514', 'gpt-4o'）
    * @param options - 可选配置（apiKey, baseURL 等）
    * @returns LanguageModel 实例
    */

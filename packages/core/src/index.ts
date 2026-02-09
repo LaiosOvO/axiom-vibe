@@ -12,6 +12,7 @@ import { Session } from './session'
 import { LLM } from './session/llm'
 import { SessionProcessor } from './session/processor'
 import { SystemPrompt } from './session/system'
+import { Skill } from './skill'
 import { Tool, ToolRegistry } from './tool'
 
 export const VERSION = '0.1.0'
@@ -27,6 +28,7 @@ export {
   LLM,
   SessionProcessor,
   SystemPrompt,
+  Skill,
   Tool,
   ToolRegistry,
   McpClient,

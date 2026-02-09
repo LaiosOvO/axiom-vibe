@@ -111,7 +111,7 @@ describe('ProviderFactory', () => {
 
   describe('getLanguageModel', () => {
     it('获取 anthropic 的 LanguageModel', () => {
-      const model = ProviderFactory.getLanguageModel('anthropic', 'claude-3-5-sonnet-20241022', {
+      const model = ProviderFactory.getLanguageModel('anthropic', 'claude-sonnet-4-20250514', {
         apiKey: 'test-key',
       })
 

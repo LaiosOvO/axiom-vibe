@@ -34,11 +34,11 @@ describe('Provider', () => {
   })
 
   it('应该能通过模型名查找 provider', () => {
-    const result = Provider.findModel('claude-3-5-sonnet-20241022')
+    const result = Provider.findModel('claude-sonnet-4-20250514')
 
     expect(result).toBeDefined()
     expect(result?.provider.id).toBe('anthropic')
-    expect(result?.model).toBe('claude-3-5-sonnet-20241022')
+    expect(result?.model).toBe('claude-sonnet-4-20250514')
   })
 
   it('应该能过滤有 API Key 的 providers', () => {

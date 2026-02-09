@@ -80,7 +80,7 @@ describe('M6 全链路集成测试', () => {
     test('defaults() 包含 model 配置', () => {
       const config = Config.defaults()
       expect(config.model).toBeDefined()
-      expect(config.model.default).toBe('anthropic/claude-3-5-sonnet-20241022')
+      expect(config.model.default).toBe('anthropic/claude-sonnet-4-20250514')
     })
 
     test('model 包含 maxOutputTokens 和 temperature', () => {

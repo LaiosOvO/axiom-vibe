@@ -9,8 +9,8 @@ describe('AiAdapter', () => {
     })
 
     it('处理含特殊字符的 modelName', () => {
-      const result = AiAdapter.createModelId('anthropic', 'claude-3-5-sonnet-20241022')
-      expect(result).toBe('anthropic:claude-3-5-sonnet-20241022')
+      const result = AiAdapter.createModelId('anthropic', 'claude-sonnet-4-20250514')
+      expect(result).toBe('anthropic:claude-sonnet-4-20250514')
     })
   })
 
@@ -22,9 +22,9 @@ describe('AiAdapter', () => {
     })
 
     it('处理含冒号的 model name（如 bedrock 模型）', () => {
-      const result = AiAdapter.parseModelId('bedrock:anthropic.claude-3-5-sonnet-20241022-v2:0')
+      const result = AiAdapter.parseModelId('bedrock:anthropic.claude-sonnet-4-20250514-v2:0')
       expect(result.providerId).toBe('bedrock')
-      expect(result.modelName).toBe('anthropic.claude-3-5-sonnet-20241022-v2:0')
+      expect(result.modelName).toBe('anthropic.claude-sonnet-4-20250514-v2:0')
     })
 
     it('处理多个冒号的情况', () => {
