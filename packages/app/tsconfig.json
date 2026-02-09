@@ -2,8 +2,12 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "jsx": "react-jsx",
+    "jsxImportSource": "solid-js",
+    "baseUrl": ".",
+    "paths": {
+      "react/jsx-runtime": ["./src/react/jsx-runtime.d.ts"]
+    }
   },
   "include": ["src", "../core/src"]
 }

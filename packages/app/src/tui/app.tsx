@@ -1,3 +1,4 @@
+/// <reference types="solid-js" />
 import { render, useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { Match, Switch } from 'solid-js'
 import { RouteProvider, useRoute } from './context/route'

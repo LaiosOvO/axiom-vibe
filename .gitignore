@@ -18,3 +18,4 @@ bun.lock
 node_modules/
 *.tsbuildinfo
 sessions/
+packages/core/sessions/

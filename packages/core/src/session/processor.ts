@@ -38,6 +38,10 @@ export namespace SessionProcessor {
     permissionRules?: Permission.PermissionRule[]
     /** 工具调用历史（用于 doom loop 检测） */
     toolCallHistory?: Permission.ToolCallRecord[]
+    /** 项目根目录（用于 spec 操作） */
+    projectRoot?: string
+    /** 当前活跃的 spec change 名称 */
+    specChangeName?: string
   }
 
   /**
@@ -54,6 +58,10 @@ export namespace SessionProcessor {
     }
     /** 完成原因 */
     finishReason: string
+    /** spec 是否被推进 */
+    specAdvanced?: boolean
+    /** 当前 spec 阶段 */
+    specPhase?: string
   }
 
   /**
@@ -278,10 +286,31 @@ export namespace SessionProcessor {
       content: assistantContent,
     })
 
+    let specAdvanced = false
+    let specPhase: string | undefined
+
+    if (input.projectRoot && input.specChangeName) {
+      try {
+        const { SpecEngine } = await import('../spec')
+        const change = await SpecEngine.getChange(input.projectRoot, input.specChangeName)
+        if (change) {
+          specPhase = change.phase
+          if (change.tasks?.every((t) => t.status === 'done')) {
+            specPhase = await SpecEngine.advancePhase(input.projectRoot, input.specChangeName)
+            specAdvanced = true
+          }
+        }
+      } catch {
+        // spec 操作失败不影响主流程
+      }
+    }
+
     return {
       assistantMessage: finalMessage,
       usage: totalUsage,
       finishReason: lastFinishReason,
+      specAdvanced,
+      specPhase,
     }
   }
 }

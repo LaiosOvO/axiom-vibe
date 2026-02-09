@@ -4,9 +4,7 @@ export namespace MessageRenderer {
     return `${rolePrefix}\n${message.content}`
   }
 
-  export function renderConversation(
-    messages: { role: string; content: string }[]
-  ): string {
+  export function renderConversation(messages: { role: string; content: string }[]): string {
     return messages.map((msg) => render(msg)).join('\n\n')
   }
 

@@ -1,3 +1,4 @@
+/// <reference types="solid-js" />
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { type Component, For, createSignal } from 'solid-js'
 import { Agent } from '../../../../core/src/agent'

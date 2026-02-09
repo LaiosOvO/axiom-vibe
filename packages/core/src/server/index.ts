@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
-// biome-ignore lint/style/useImportType: z 在 schema 定义中作为值使用
 import { z } from 'zod'
 import { Agent } from '../agent'
+import { AgentRunner } from '../agent/runner'
 import { Provider } from '../provider'
+import { ProviderFactory } from '../provider/llm'
 import { Session } from '../session'
 import { ToolRegistry } from '../tool'
 
@@ -157,22 +158,58 @@ export namespace Server {
               }
 
               try {
-                // 发送开始事件
                 send('start', { sessionId })
 
-                // 注意：这里不执行真正的 LLM 调用，
-                // 真实场景需要 model 参数，此处返回占位响应
-                // 后续版本将接入 AgentRunner
-                const assistantMessage = Session.addMessage(sessionId, {
-                  role: 'assistant',
-                  content: `[SSE 响应占位] 收到消息: ${content}`,
-                })
+                const modelId = body.model || process.env.AXIOM_MODEL
+                const agentId = body.agentId || 'build'
 
-                send('text', { content: assistantMessage.content })
-                send('done', {
-                  messageId: assistantMessage.id,
-                  usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-                })
+                if (modelId) {
+                  try {
+                    const separator = modelId.includes('/') ? '/' : ':'
+                    const parts = modelId.split(separator)
+                    if (parts.length !== 2) {
+                      throw new Error('Invalid model format')
+                    }
+                    const [providerId, modelName] = parts
+
+                    const model = ProviderFactory.getLanguageModel(providerId, modelName)
+
+                    const result = await AgentRunner.run({
+                      agentId,
+                      userMessage: content,
+                      model,
+                      projectRoot: process.cwd(),
+                    })
+
+                    send('text', { content: result.assistantMessage.content })
+                    send('done', {
+                      messageId: result.assistantMessage.id,
+                      usage: result.usage,
+                    })
+                  } catch (modelError) {
+                    const assistantMessage = Session.addMessage(sessionId, {
+                      role: 'assistant',
+                      content: `[SSE 响应占位] 收到消息: ${content}`,
+                    })
+
+                    send('text', { content: assistantMessage.content })
+                    send('done', {
+                      messageId: assistantMessage.id,
+                      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                    })
+                  }
+                } else {
+                  const assistantMessage = Session.addMessage(sessionId, {
+                    role: 'assistant',
+                    content: `[SSE 响应占位] 收到消息: ${content}`,
+                  })
+
+                  send('text', { content: assistantMessage.content })
+                  send('done', {
+                    messageId: assistantMessage.id,
+                    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                  })
+                }
               } catch (error) {
                 send('error', { message: error instanceof Error ? error.message : String(error) })
               } finally {

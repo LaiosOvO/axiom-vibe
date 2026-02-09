@@ -1,3 +1,4 @@
+/// <reference types="solid-js" />
 import { type ParentComponent, createContext, useContext } from 'solid-js'
 import { createSignal } from 'solid-js'
 

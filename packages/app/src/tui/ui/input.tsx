@@ -1,3 +1,4 @@
+/// <reference types="solid-js" />
 import { useKeyboard } from '@opentui/solid'
 import { type Component, createSignal, onMount } from 'solid-js'
 

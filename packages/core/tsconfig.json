@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "dist",
     "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "jsxImportSource": "solid-js",
+    "allowImportingTsExtensions": true
   },
-  "include": ["src", "../app/src"]
+  "include": ["src", "../app/src", "test"]
 }

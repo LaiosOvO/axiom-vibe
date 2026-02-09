@@ -64,9 +64,9 @@ describe('GitHubSearch', () => {
 
     const sorted = GitHubSearch.sortResults(results, 'stars')
 
-    expect(sorted[0].stars).toBe(200)
-    expect(sorted[1].stars).toBe(100)
-    expect(sorted[2].stars).toBe(50)
+    expect(sorted[0]!.stars).toBe(200)
+    expect(sorted[1]!.stars).toBe(100)
+    expect(sorted[2]!.stars).toBe(50)
   })
 
   it('filterByAge 应该过滤超过 maxAgeDays 的仓库', () => {
@@ -102,7 +102,7 @@ describe('GitHubSearch', () => {
     const filtered = GitHubSearch.filterByAge(results, 7)
 
     expect(filtered.length).toBe(1)
-    expect(filtered[0].fullName).toBe('repo1')
+    expect(filtered[0]!.fullName).toBe('repo1')
   })
 
   it('deduplicate 应该去除重复的 fullName', () => {
@@ -168,7 +168,7 @@ describe('GitHubSearch', () => {
 
     expect(cached).toBeDefined()
     expect(cached?.length).toBe(1)
-    expect(cached?.[0].fullName).toBe('owner/repo1')
+    expect(cached?.[0]!.fullName).toBe('owner/repo1')
   })
 
   it('clearCache 后 getCached 应该返回 undefined', () => {

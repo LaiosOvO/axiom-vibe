@@ -44,7 +44,7 @@ describe('LspProtocol', () => {
     const params = msg.params as Record<string, unknown>
     const changes = params.contentChanges as Array<Record<string, unknown>>
     expect(changes).toHaveLength(1)
-    expect(changes[0].text).toBe('const y = 2')
+    expect(changes[0]!.text).toBe('const y = 2')
   })
 
   test('createDiagnosticRequest 含 textDocument.uri', () => {
@@ -78,12 +78,12 @@ describe('LspProtocol', () => {
     ]
     const result = LspProtocol.parseDiagnostics('file:///test.ts', diagnostics)
     expect(result).toHaveLength(3)
-    expect(result[0].severity).toBe('error')
-    expect(result[0].line).toBe(10)
-    expect(result[0].character).toBe(5)
-    expect(result[0].source).toBe('ts')
-    expect(result[1].severity).toBe('warning')
-    expect(result[2].severity).toBe('hint')
+    expect(result[0]!.severity).toBe('error')
+    expect(result[0]!.line).toBe(10)
+    expect(result[0]!.character).toBe(5)
+    expect(result[0]!.source).toBe('ts')
+    expect(result[1]!.severity).toBe('warning')
+    expect(result[2]!.severity).toBe('hint')
   })
 
   test('parseDiagnostics 处理空数组返回空', () => {

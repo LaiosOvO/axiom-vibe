@@ -40,7 +40,9 @@
       "ref/**",
       "specs/**",
       "progress/**",
-      "docs/**"
+      "docs/**",
+      "sessions/**",
+      "packages/core/sessions/**"
     ]
   }
 }

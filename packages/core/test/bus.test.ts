@@ -20,7 +20,7 @@ describe('SPEC-02: 事件总线', () => {
       received = data.value
     })
     Bus.publish(TestEvent, { value: 42 })
-    expect(received).toBe(42)
+    expect(received as number | null).toBe(42)
   })
 
   test('取消订阅后不再接收', () => {

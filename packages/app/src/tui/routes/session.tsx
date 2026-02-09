@@ -1,3 +1,4 @@
+/// <reference types="solid-js" />
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { type Component, For, Show, createSignal } from 'solid-js'
 import { Agent } from '../../../../core/src/agent'
@@ -114,6 +115,55 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
   const handleSubmit = async (text: string) => {
     const sess = session()
     if (!sess || isProcessing()) return
+
+    if (text.startsWith('/agent')) {
+      const parts = text.trim().split(/\s+/)
+      const agentId = parts[1]
+
+      Session.addMessage(sess.id, {
+        role: 'user',
+        content: text,
+      })
+
+      if (!agentId) {
+        const currentAgentId = sess.agentId || 'build'
+        const currentAgent = Agent.getAgentDef(currentAgentId)
+        const allAgents = Agent.listAgentDefs()
+
+        const agentList = allAgents.map((a) => `  • ${a.id}: ${a.name}`).join('\n')
+        const systemMessage = `当前 Agent: ${currentAgent?.name ?? currentAgentId}\n\n可用 Agents:\n${agentList}\n\n使用 /agent <id> 切换 Agent`
+
+        Session.addMessage(sess.id, {
+          role: 'assistant',
+          content: systemMessage,
+        })
+      } else {
+        const agent = Agent.getAgentDef(agentId)
+        if (!agent) {
+          const allAgents = Agent.listAgentDefs()
+          const agentList = allAgents.map((a) => `  • ${a.id}: ${a.name}`).join('\n')
+          const errorMessage = `❌ Agent "${agentId}" 不存在\n\n可用 Agents:\n${agentList}`
+
+          Session.addMessage(sess.id, {
+            role: 'assistant',
+            content: errorMessage,
+          })
+        } else {
+          sess.agentId = agentId
+
+          const successMessage = `✅ 已切换到 Agent: ${agent.name}`
+          Session.addMessage(sess.id, {
+            role: 'assistant',
+            content: successMessage,
+          })
+
+          Session.save(sess.id).catch((error) => {
+            console.error('保存会话失败:', error)
+          })
+        }
+      }
+      return
+    }
 
     // 添加用户消息
     Session.addMessage(sess.id, {

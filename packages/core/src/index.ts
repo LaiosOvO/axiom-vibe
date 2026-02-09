@@ -6,6 +6,7 @@ import { AgentRunner } from './agent/runner'
 import { Config } from './config'
 import { LspClient } from './lsp/client'
 import { McpClient } from './mcp/client'
+import { Orchestrator } from './orchestrator'
 import { Provider } from './provider'
 import { ProviderFactory } from './provider/llm'
 import { Server } from './server'
@@ -35,6 +36,7 @@ export {
   ToolRegistry,
   McpClient,
   LspClient,
+  Orchestrator,
 }
 
 /** CLI 入口 */
@@ -65,6 +67,9 @@ export async function main() {
     case 'research':
       await handleResearch(args.slice(1))
       break
+    case 'orchestrate':
+      await handleOrchestrate(args.slice(1))
+      break
     case 'serve':
       handleServe(args.slice(1))
       break
@@ -82,19 +87,21 @@ export function printHelp() {
 ${NAME} v${VERSION} — AI 驱动的编码 Agent 平台
 
 用法:
-  axiom                 启动交互模式
-  axiom run <prompt>    Headless 模式 [--agent=build|plan|explore]
-  axiom research <url>  Deep Research，克隆并分析参考项目
-  axiom serve           启动 HTTP 服务器
+  axiom                      启动交互模式
+  axiom run <prompt>         Headless 模式 [--agent=build|plan|explore]
+  axiom research <url>       Deep Research，克隆并分析参考项目
+  axiom orchestrate <plan>   执行编排计划 (JSON 格式)
+  axiom serve                启动 HTTP 服务器
 
 选项:
-  -v, --version         显示版本号
-  -h, --help            显示帮助信息
+  -v, --version              显示版本号
+  -h, --help                 显示帮助信息
 
 示例:
-  axiom                 进入交互式 TUI
-  axiom run "实现登录功能"  直接执行任务
-  axiom serve           启动服务器供客户端连接
+  axiom                      进入交互式 TUI
+  axiom run "实现登录功能"   直接执行任务
+  axiom orchestrate plan.json 执行编排计划
+  axiom serve                启动服务器供客户端连接
 `.trim(),
   )
 }
@@ -267,6 +274,103 @@ export async function handleResearch(args: string[]) {
     console.log(`  项目: ${refProject.name}`)
     console.log(`  文档: ${summaryPath}`)
     console.log(`  模块: ${doc.modules.length} 个`)
+  } catch (error) {
+    console.error('[axiom] 错误:', error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+}
+
+/** 处理 orchestrate 子命令 — 执行编排计划 */
+export async function handleOrchestrate(args: string[]) {
+  const planFile = args.find((a) => !a.startsWith('--'))
+  if (!planFile) {
+    console.error('错误: orchestrate 命令需要提供 plan 文件路径')
+    console.error('用法: axiom orchestrate <plan.json>')
+    process.exit(1)
+    return
+  }
+
+  try {
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+
+    // 读取 plan 文件
+    const planPath = resolve(planFile)
+    const planContent = readFileSync(planPath, 'utf-8')
+    const planData = JSON.parse(planContent)
+
+    // 验证 plan 数据结构
+    if (!planData.title || !Array.isArray(planData.steps)) {
+      throw new Error('无效的 plan 文件格式，需要包含 title 和 steps 字段')
+    }
+
+    // 初始化配置和存储
+    const config = Config.load({ projectDir: process.cwd() })
+
+    const { homedir } = await import('node:os')
+    const { join } = await import('node:path')
+    const dataDir = join(homedir(), '.axiom', 'data')
+    const { Storage } = await import('./storage')
+    Storage.init(dataDir)
+
+    // 获取模型
+    const modelIdFromEnv = process.env.AXIOM_MODEL
+    let modelId: string
+
+    if (modelIdFromEnv) {
+      modelId = modelIdFromEnv
+    } else {
+      const defaultProvider = config.provider.default
+      const providerInfo = Provider.get(defaultProvider)
+      if (!providerInfo || providerInfo.models.length === 0) {
+        throw new Error(`Provider ${defaultProvider} 没有可用模型`)
+      }
+      modelId = `${defaultProvider}/${providerInfo.models[0]}`
+    }
+
+    const [providerId, ...modelParts] = modelId.split('/')
+    const modelName = modelParts.join('/')
+
+    if (!providerId || !modelName) {
+      throw new Error(`无效的模型 ID 格式: ${modelId}，期望格式: "providerId/modelName"`)
+    }
+
+    console.log(`[axiom] 使用模型: ${modelId}`)
+    console.log(`[axiom] 加载计划: ${planData.title}`)
+
+    const model = ProviderFactory.getLanguageModel(providerId, modelName)
+
+    // 创建 plan
+    const plan = Orchestrator.createPlan(planData.title, planData.steps)
+    console.log(`[axiom] 计划已创建，包含 ${plan.steps.length} 个步骤`)
+
+    // 执行 plan
+    console.log('[axiom] 开始执行计划...\n')
+    const projectRoot = process.cwd()
+    const result = await Orchestrator.executePlan(plan, model, projectRoot)
+
+    // 输出结果摘要
+    console.log('\n[axiom] 计划执行完成!')
+    console.log(`  计划 ID: ${result.planId}`)
+    console.log(
+      `  完成步骤: ${result.results.filter((r) => r.success).length}/${result.results.length}`,
+    )
+    console.log(`  全部完成: ${result.allCompleted ? '是' : '否'}`)
+    console.log(
+      `  使用量: ${result.totalUsage.inputTokens} 输入 + ${result.totalUsage.outputTokens} 输出 = ${result.totalUsage.totalTokens} 总计`,
+    )
+
+    // 输出每个步骤的结果
+    console.log('\n[axiom] 步骤结果:')
+    for (const stepResult of result.results) {
+      const status = stepResult.success ? '✓' : '✗'
+      console.log(`  ${status} [${stepResult.agentId}] ${stepResult.stepId}`)
+      if (!stepResult.success) {
+        console.log(`    错误: ${stepResult.output}`)
+      }
+    }
+
+    process.exit(result.allCompleted ? 0 : 1)
   } catch (error) {
     console.error('[axiom] 错误:', error instanceof Error ? error.message : String(error))
     process.exit(1)

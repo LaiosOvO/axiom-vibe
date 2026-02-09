@@ -31,15 +31,16 @@ export namespace GitHubSearch {
   const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 小时
 
   // 构建 GitHub API 搜索查询字符串
-  export function buildQuery(options: SearchOptions): string {
+  export function buildQuery(options: z.input<typeof SearchOptions>): string {
     let query = options.query
 
     if (options.language) {
       query += ` language:${options.language}`
     }
 
-    if (options.minStars > 0) {
-      query += ` stars:>=${options.minStars}`
+    const minStars = options.minStars ?? 0
+    if (minStars > 0) {
+      query += ` stars:>=${minStars}`
     }
 
     return query

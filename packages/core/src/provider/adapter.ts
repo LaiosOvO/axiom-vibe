@@ -1,4 +1,3 @@
-// biome-ignore lint/style/useImportType: z 在 schema 定义中作为值使用
 import { z } from 'zod'
 
 export namespace AiAdapter {

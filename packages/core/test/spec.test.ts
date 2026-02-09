@@ -493,5 +493,132 @@ updated: 2025-02-09T11:00:00Z
         expect(specs.length).toBe(0)
       })
     })
+
+    describe('SessionProcessor 集成', () => {
+      it('所有任务完成时自动推进 spec 阶段', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-integration', '集成测试')
+        await SpecEngine.advancePhase(testDir, 'test-integration')
+        await SpecEngine.advancePhase(testDir, 'test-integration')
+
+        const tasks: SpecEngine.TaskItem[] = [
+          { id: 'task-1', description: '任务1', status: 'done' },
+          { id: 'task-2', description: '任务2', status: 'done' },
+        ]
+        await SpecEngine.writeTasks(testDir, 'test-integration', tasks)
+
+        const { SessionProcessor } = await import('../src/session/processor')
+        const { Session } = await import('../src/session')
+
+        Session.reset()
+        const session = Session.create({ modelId: 'test-model' })
+
+        const mockModel = {
+          modelId: 'test-model',
+          provider: 'test',
+          doStream: async function* () {
+            yield {
+              type: 'text-delta' as const,
+              textDelta: 'Test response',
+            }
+            yield {
+              type: 'finish' as const,
+              finishReason: 'stop' as const,
+              usage: { promptTokens: 10, completionTokens: 20 },
+            }
+          },
+        }
+
+        const result = await SessionProcessor.process({
+          sessionId: session.id,
+          userMessage: 'Test message',
+          model: mockModel as any,
+          projectRoot: testDir,
+          specChangeName: 'test-integration',
+        })
+
+        expect(result.specAdvanced).toBe(true)
+        expect(result.specPhase).toBe('archive')
+      })
+
+      it('任务未完成时不推进 spec 阶段', async () => {
+        await SpecEngine.init(testDir)
+        await SpecEngine.createChange(testDir, 'test-no-advance', '不推进测试')
+        await SpecEngine.advancePhase(testDir, 'test-no-advance')
+        await SpecEngine.advancePhase(testDir, 'test-no-advance')
+
+        const tasks: SpecEngine.TaskItem[] = [
+          { id: 'task-1', description: '任务1', status: 'done' },
+          { id: 'task-2', description: '任务2', status: 'pending' },
+        ]
+        await SpecEngine.writeTasks(testDir, 'test-no-advance', tasks)
+
+        const { SessionProcessor } = await import('../src/session/processor')
+        const { Session } = await import('../src/session')
+
+        Session.reset()
+        const session = Session.create({ modelId: 'test-model' })
+
+        const mockModel = {
+          modelId: 'test-model',
+          provider: 'test',
+          doStream: async function* () {
+            yield {
+              type: 'text-delta' as const,
+              textDelta: 'Test response',
+            }
+            yield {
+              type: 'finish' as const,
+              finishReason: 'stop' as const,
+              usage: { promptTokens: 10, completionTokens: 20 },
+            }
+          },
+        }
+
+        const result = await SessionProcessor.process({
+          sessionId: session.id,
+          userMessage: 'Test message',
+          model: mockModel as any,
+          projectRoot: testDir,
+          specChangeName: 'test-no-advance',
+        })
+
+        expect(result.specAdvanced).toBe(false)
+        expect(result.specPhase).toBe('apply')
+      })
+
+      it('没有 projectRoot 时不执行 spec 操作', async () => {
+        const { SessionProcessor } = await import('../src/session/processor')
+        const { Session } = await import('../src/session')
+
+        Session.reset()
+        const session = Session.create({ modelId: 'test-model' })
+
+        const mockModel = {
+          modelId: 'test-model',
+          provider: 'test',
+          doStream: async function* () {
+            yield {
+              type: 'text-delta' as const,
+              textDelta: 'Test response',
+            }
+            yield {
+              type: 'finish' as const,
+              finishReason: 'stop' as const,
+              usage: { promptTokens: 10, completionTokens: 20 },
+            }
+          },
+        }
+
+        const result = await SessionProcessor.process({
+          sessionId: session.id,
+          userMessage: 'Test message',
+          model: mockModel as any,
+        })
+
+        expect(result.specAdvanced).toBe(false)
+        expect(result.specPhase).toBeUndefined()
+      })
+    })
   })
 })

@@ -1,4 +1,3 @@
-// biome-ignore lint/style/useImportType: z 在 schema 定义中作为值使用
 import { z } from 'zod'
 
 export namespace McpServer {
@@ -32,7 +31,7 @@ export namespace McpServer {
 
   const registry = new Map<string, Info>()
 
-  export function register(name: string, config: Config): void {
+  export function register(name: string, config: z.input<typeof Config>): void {
     const validatedConfig = Config.parse(config)
     const info: Info = {
       name,
