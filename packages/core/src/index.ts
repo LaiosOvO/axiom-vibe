@@ -3,18 +3,35 @@
 
 import { Agent } from './agent'
 import { Config } from './config'
+import { LspClient } from './lsp/client'
+import { McpClient } from './mcp/client'
 import { Provider } from './provider'
 import { ProviderFactory } from './provider/llm'
 import { Server } from './server'
 import { Session } from './session'
 import { LLM } from './session/llm'
 import { SessionProcessor } from './session/processor'
+import { SystemPrompt } from './session/system'
+import { Tool, ToolRegistry } from './tool'
 
 export const VERSION = '0.1.0'
 export const NAME = 'axiom'
 
-// 导出所有模块供外部使用
-export { Server, Session, Provider, ProviderFactory, Agent, Config, LLM, SessionProcessor }
+export {
+  Server,
+  Session,
+  Provider,
+  ProviderFactory,
+  Agent,
+  Config,
+  LLM,
+  SessionProcessor,
+  SystemPrompt,
+  Tool,
+  ToolRegistry,
+  McpClient,
+  LspClient,
+}
 
 /** CLI 入口 */
 export async function main() {
@@ -39,7 +56,7 @@ export async function main() {
 
   switch (command) {
     case 'run':
-      handleRun(args.slice(1))
+      await handleRun(args.slice(1))
       break
     case 'serve':
       handleServe(args.slice(1))
@@ -92,23 +109,92 @@ export async function handleTui() {
 }
 
 /** 处理 run 子命令 — headless 模式 */
-export function handleRun(args: string[]) {
+export async function handleRun(args: string[]) {
   const prompt = args.join(' ')
   if (!prompt) {
     console.error('错误: run 命令需要提供 prompt')
     console.error('用法: axiom run <prompt>')
     process.exit(1)
+    return
   }
 
-  const modelId = process.env.AXIOM_MODEL ?? 'claude-3-5-sonnet-20241022'
-  const session = Session.create({ modelId, title: `headless: ${prompt.slice(0, 50)}` })
-  Session.addMessage(session.id, { role: 'user', content: prompt })
+  try {
+    const config = Config.load({ projectDir: process.cwd() })
 
-  console.log(`[axiom] 会话 ${session.id} 已创建`)
-  console.log(`[axiom] 模型: ${modelId}`)
-  console.log(`[axiom] Prompt: ${prompt}`)
-  // TODO: 接入 AiAdapter 调用真正的 AI
-  console.log('[axiom] AI 调用待接入 — 当前仅创建会话和消息')
+    const { homedir } = await import('node:os')
+    const { join } = await import('node:path')
+    const dataDir = join(homedir(), '.axiom', 'data')
+    const { Storage } = await import('./storage')
+    Storage.init(dataDir)
+
+    const modelIdFromEnv = process.env.AXIOM_MODEL
+    let modelId: string
+
+    if (modelIdFromEnv) {
+      modelId = modelIdFromEnv
+    } else {
+      const defaultProvider = config.provider.default
+      const providerInfo = Provider.get(defaultProvider)
+      if (!providerInfo || providerInfo.models.length === 0) {
+        throw new Error(`Provider ${defaultProvider} 没有可用模型`)
+      }
+      modelId = `${defaultProvider}/${providerInfo.models[0]}`
+    }
+
+    const [providerId, ...modelParts] = modelId.split('/')
+    const modelName = modelParts.join('/')
+
+    if (!providerId || !modelName) {
+      throw new Error(`无效的模型 ID 格式: ${modelId}，期望格式: "providerId/modelName"`)
+    }
+
+    console.log(`[axiom] 使用模型: ${modelId}`)
+
+    const model = ProviderFactory.getLanguageModel(providerId, modelName)
+
+    const session = Session.create({ modelId, title: `headless: ${prompt.slice(0, 50)}` })
+    console.log(`[axiom] 会话 ${session.id} 已创建`)
+
+    const toolInfos = ToolRegistry.list()
+    const tools: Record<
+      string,
+      {
+        description: string
+        parameters: unknown
+        execute: (args: unknown) => Promise<unknown>
+      }
+    > = {}
+
+    for (const toolInfo of toolInfos) {
+      tools[toolInfo.name] = {
+        description: toolInfo.description,
+        parameters: toolInfo.parameters,
+        execute: toolInfo.execute,
+      }
+    }
+
+    console.log(`[axiom] 已加载 ${Object.keys(tools).length} 个工具`)
+
+    console.log('[axiom] 正在处理...\n')
+    const result = await SessionProcessor.process({
+      sessionId: session.id,
+      userMessage: prompt,
+      model,
+      tools,
+    })
+
+    console.log('\n[axiom] 响应:')
+    console.log(result.assistantMessage.content)
+    console.log(
+      `\n[axiom] 使用量: ${result.usage.inputTokens} 输入 + ${result.usage.outputTokens} 输出 = ${result.usage.totalTokens} 总计`,
+    )
+    console.log(`[axiom] 完成原因: ${result.finishReason}`)
+
+    process.exit(0)
+  } catch (error) {
+    console.error('[axiom] 错误:', error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
 }
 
 /** 处理 serve 子命令 — 启动 HTTP 服务器 */

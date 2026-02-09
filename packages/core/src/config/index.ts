@@ -26,12 +26,28 @@ export namespace Config {
           enabled: z.boolean(),
         })
         .default({ enabled: true }),
+      model: z
+        .object({
+          default: z.string(),
+          maxOutputTokens: z.number(),
+          temperature: z.number(),
+        })
+        .default({
+          default: 'anthropic/claude-3-5-sonnet-20241022',
+          maxOutputTokens: 16384,
+          temperature: 0,
+        }),
     })
     .default({
       provider: { default: 'anthropic' },
       agent: { default: 'orchestrator' },
       spec: { dir: 'specs' },
       growth: { enabled: true },
+      model: {
+        default: 'anthropic/claude-3-5-sonnet-20241022',
+        maxOutputTokens: 16384,
+        temperature: 0,
+      },
     })
 
   export type Info = z.infer<typeof Info>
@@ -92,6 +108,20 @@ export namespace Config {
 
     if (process.env.AXIOM_GROWTH_ENABLED) {
       config.growth = { enabled: process.env.AXIOM_GROWTH_ENABLED === 'true' }
+    }
+
+    const modelConfig: Record<string, unknown> = {}
+    if (process.env.AXIOM_MODEL_DEFAULT) {
+      modelConfig.default = process.env.AXIOM_MODEL_DEFAULT
+    }
+    if (process.env.AXIOM_MODEL_MAX_OUTPUT_TOKENS) {
+      modelConfig.maxOutputTokens = Number.parseInt(process.env.AXIOM_MODEL_MAX_OUTPUT_TOKENS, 10)
+    }
+    if (process.env.AXIOM_MODEL_TEMPERATURE) {
+      modelConfig.temperature = Number.parseFloat(process.env.AXIOM_MODEL_TEMPERATURE)
+    }
+    if (Object.keys(modelConfig).length > 0) {
+      config.model = modelConfig
     }
 
     return config as Partial<Info>

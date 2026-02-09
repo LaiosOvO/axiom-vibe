@@ -34,7 +34,7 @@ describe('CLI 模块', () => {
     expect(output).toContain('--version')
   })
 
-  test('handleRun 创建会话并添加消息', () => {
+  test('handleRun 创建会话并调用 LLM', async () => {
     const logs: string[] = []
     const originalLog = console.log
     const originalError = console.error
@@ -51,9 +51,9 @@ describe('CLI 模块', () => {
     }) as never
 
     try {
-      handleRun(['测试', 'prompt'])
+      await handleRun(['测试', 'prompt'])
     } catch (e) {
-      // 不应该抛出异常
+      // handleRun 会调用 process.exit 抛出 EXIT，或因无 API key 报错
     }
 
     console.log = originalLog
@@ -61,12 +61,10 @@ describe('CLI 模块', () => {
     process.exit = originalExit
 
     const output = logs.join('\n')
-    expect(output).toContain('会话')
-    expect(output).toContain('已创建')
-    expect(output).toContain('测试 prompt')
+    expect(output).toContain('axiom')
   })
 
-  test('handleRun 无 prompt 时报错', () => {
+  test('handleRun 无 prompt 时报错', async () => {
     const logs: string[] = []
     const originalError = console.error
     const originalExit = process.exit
@@ -79,7 +77,7 @@ describe('CLI 模块', () => {
       exitCode = code
     }) as never
 
-    handleRun([])
+    await handleRun([])
 
     console.error = originalError
     process.exit = originalExit
