@@ -81,8 +81,9 @@ function registerBuiltinTools(): void {
     description: '读取文件内容',
     parameters: z.object({ path: z.string() }),
     result: z.object({ content: z.string() }),
-    execute: async () => {
-      throw new Error('未实现')
+    execute: async (params) => {
+      const content = await Bun.file(params.path).text()
+      return { content }
     },
   })
 
@@ -91,8 +92,9 @@ function registerBuiltinTools(): void {
     description: '写入文件内容',
     parameters: z.object({ path: z.string(), content: z.string() }),
     result: z.object({ success: z.boolean() }),
-    execute: async () => {
-      throw new Error('未实现')
+    execute: async (params) => {
+      await Bun.write(params.path, params.content)
+      return { success: true }
     },
   })
 
@@ -101,8 +103,17 @@ function registerBuiltinTools(): void {
     description: '执行 bash 命令',
     parameters: z.object({ command: z.string() }),
     result: z.object({ stdout: z.string(), stderr: z.string(), exitCode: z.number() }),
-    execute: async () => {
-      throw new Error('未实现')
+    execute: async (params) => {
+      const proc = Bun.spawn(['sh', '-c', params.command], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      })
+      const [stdout, stderr] = await Promise.all([
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+      ])
+      const exitCode = await proc.exited
+      return { stdout, stderr, exitCode }
     },
   })
 

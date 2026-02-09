@@ -1,11 +1,20 @@
 #!/usr/bin/env bun
 // Axiom - AI 驱动的编码 Agent 平台
 
+import { Agent } from './agent'
+import { Config } from './config'
+import { Provider } from './provider'
+import { Server } from './server'
+import { Session } from './session'
+
 export const VERSION = '0.1.0'
 export const NAME = 'axiom'
 
+// 导出所有模块供外部使用
+export { Server, Session, Provider, Agent, Config }
+
 /** CLI 入口 */
-function main() {
+export function main() {
   const args = process.argv.slice(2)
   const command = args[0]
 
@@ -34,7 +43,7 @@ function main() {
 }
 
 /** 打印帮助信息 */
-function printHelp() {
+export function printHelp() {
   console.log(
     `
 ${NAME} v${VERSION} — AI 驱动的编码 Agent 平台
@@ -56,22 +65,40 @@ ${NAME} v${VERSION} — AI 驱动的编码 Agent 平台
   )
 }
 
-/** 处理 run 子命令 */
-function handleRun(args: string[]) {
+/** 处理 run 子命令 — headless 模式 */
+export function handleRun(args: string[]) {
   const prompt = args.join(' ')
   if (!prompt) {
     console.error('错误: run 命令需要提供 prompt')
     console.error('用法: axiom run <prompt>')
     process.exit(1)
   }
-  // TODO: 实现 headless 模式
-  console.log(`[headless] 执行任务: ${prompt}`)
+
+  const modelId = process.env.AXIOM_MODEL ?? 'claude-3-5-sonnet-20241022'
+  const session = Session.create({ modelId, title: `headless: ${prompt.slice(0, 50)}` })
+  Session.addMessage(session.id, { role: 'user', content: prompt })
+
+  console.log(`[axiom] 会话 ${session.id} 已创建`)
+  console.log(`[axiom] 模型: ${modelId}`)
+  console.log(`[axiom] Prompt: ${prompt}`)
+  // TODO: 接入 AiAdapter 调用真正的 AI
+  console.log('[axiom] AI 调用待接入 — 当前仅创建会话和消息')
 }
 
-/** 处理 serve 子命令 */
-function handleServe(_args: string[]) {
-  // TODO: 实现 HTTP 服务器
-  console.log('[server] Axiom 服务器启动中...')
+/** 处理 serve 子命令 — 启动 HTTP 服务器 */
+export function handleServe(args: string[]) {
+  const portArg = args.find((a) => a.startsWith('--port='))
+  const port = portArg ? Number.parseInt(portArg.split('=')[1] ?? '4096', 10) : 4096
+
+  const app = Server.createApp()
+  console.log(`[axiom] 服务器启动于 http://127.0.0.1:${port}`)
+  console.log(`[axiom] 可用 Provider: ${Provider.getAvailable().length} 个`)
+  console.log(`[axiom] 内置 Agent: ${Agent.list().length} 个`)
+
+  Bun.serve({
+    fetch: app.fetch,
+    port,
+  })
 }
 
 if (import.meta.main) {
