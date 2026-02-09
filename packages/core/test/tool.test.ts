@@ -87,13 +87,18 @@ describe('ToolRegistry', () => {
     ToolRegistry.register(upper)
 
     const tools = ToolRegistry.list()
-    expect(tools.length).toBe(5)
+    expect(tools.length).toBe(10)
     const names = tools.map((t) => t.name).sort()
     expect(names).toContain('echo')
     expect(names).toContain('upper')
     expect(names).toContain('read')
     expect(names).toContain('write')
     expect(names).toContain('bash')
+    expect(names).toContain('glob')
+    expect(names).toContain('grep')
+    expect(names).toContain('edit')
+    expect(names).toContain('ls')
+    expect(names).toContain('webfetch')
   })
 
   test('has 检查工具是否存在', () => {
@@ -143,10 +148,11 @@ describe('ToolRegistry', () => {
     expect(ToolRegistry.has('bash')).toBe(true)
   })
 
-  test('骨架工具 execute 抛出未实现错误', async () => {
-    const read = ToolRegistry.get('read')
-    expect(read).toBeDefined()
-
-    await expect(read?.execute({ path: '/test' })).rejects.toThrow('未实现')
+  test('预注册的新工具存在', () => {
+    expect(ToolRegistry.has('glob')).toBe(true)
+    expect(ToolRegistry.has('grep')).toBe(true)
+    expect(ToolRegistry.has('edit')).toBe(true)
+    expect(ToolRegistry.has('ls')).toBe(true)
+    expect(ToolRegistry.has('webfetch')).toBe(true)
   })
 })

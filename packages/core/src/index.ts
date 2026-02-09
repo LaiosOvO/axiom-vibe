@@ -4,17 +4,20 @@
 import { Agent } from './agent'
 import { Config } from './config'
 import { Provider } from './provider'
+import { ProviderFactory } from './provider/llm'
 import { Server } from './server'
 import { Session } from './session'
+import { LLM } from './session/llm'
+import { SessionProcessor } from './session/processor'
 
 export const VERSION = '0.1.0'
 export const NAME = 'axiom'
 
 // 导出所有模块供外部使用
-export { Server, Session, Provider, Agent, Config }
+export { Server, Session, Provider, ProviderFactory, Agent, Config, LLM, SessionProcessor }
 
 /** CLI 入口 */
-export function main() {
+export async function main() {
   const args = process.argv.slice(2)
   const command = args[0]
 
@@ -23,9 +26,15 @@ export function main() {
     process.exit(0)
   }
 
-  if (args.includes('--help') || args.includes('-h') || !command) {
+  if (args.includes('--help') || args.includes('-h')) {
     printHelp()
     process.exit(0)
+  }
+
+  // 默认启动 TUI
+  if (!command) {
+    await handleTui()
+    return
   }
 
   switch (command) {
@@ -63,6 +72,23 @@ ${NAME} v${VERSION} — AI 驱动的编码 Agent 平台
   axiom serve           启动服务器供客户端连接
 `.trim(),
   )
+}
+
+/** 处理 TUI 模式 — 启动终端界面 */
+export async function handleTui() {
+  try {
+    const mod = await import('../../app/src/tui/app')
+    await mod.tui({
+      onExit: async () => {
+        console.log('\n再见！')
+        process.exit(0)
+      },
+    })
+  } catch (e) {
+    console.error('[axiom] TUI 启动失败，请确保 @opentui/solid 已安装')
+    console.error(e instanceof Error ? e.message : String(e))
+    process.exit(1)
+  }
 }
 
 /** 处理 run 子命令 — headless 模式 */

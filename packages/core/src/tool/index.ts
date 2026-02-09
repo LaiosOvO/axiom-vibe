@@ -1,3 +1,5 @@
+import { readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 // biome-ignore lint/style/useImportType: z 在 registerBuiltinTools 中作为值使用
 import { z } from 'zod'
 
@@ -117,9 +119,156 @@ function registerBuiltinTools(): void {
     },
   })
 
+  const glob = Tool.define({
+    name: 'glob',
+    description: '文件模式搜索',
+    parameters: z.object({
+      pattern: z.string(),
+      cwd: z.string().optional(),
+    }),
+    result: z.object({ files: z.array(z.string()) }),
+    execute: async (params) => {
+      const glob = new Bun.Glob(params.pattern)
+      const files: string[] = []
+      for await (const file of glob.scan(params.cwd ?? '.')) {
+        files.push(file)
+      }
+      return { files }
+    },
+  })
+
+  const grep = Tool.define({
+    name: 'grep',
+    description: '内容搜索（支持正则表达式）',
+    parameters: z.object({
+      pattern: z.string(),
+      path: z.string().optional(),
+      include: z.string().optional(),
+    }),
+    result: z.object({
+      matches: z.array(
+        z.object({
+          file: z.string(),
+          line: z.number(),
+          content: z.string(),
+        }),
+      ),
+    }),
+    execute: async (params) => {
+      const regex = new RegExp(params.pattern)
+      const matches: Array<{ file: string; line: number; content: string }> = []
+      const searchPath = params.path ?? '.'
+
+      let pattern = '**/*'
+      if (params.include) {
+        pattern = `**/*.${params.include}`
+      }
+
+      const glob = new Bun.Glob(pattern)
+      const files: string[] = []
+      for await (const file of glob.scan(searchPath)) {
+        const fullPath = join(searchPath, file)
+        try {
+          const stat = await Bun.file(fullPath).exists()
+          if (stat) {
+            files.push(fullPath)
+          }
+        } catch {}
+      }
+
+      for (const file of files) {
+        try {
+          const content = await Bun.file(file).text()
+          const lines = content.split('\n')
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]
+            if (line !== undefined && regex.test(line)) {
+              matches.push({
+                file,
+                line: i + 1,
+                content: line,
+              })
+            }
+          }
+        } catch {}
+      }
+
+      return { matches }
+    },
+  })
+
+  const edit = Tool.define({
+    name: 'edit',
+    description: '精确文本替换编辑',
+    parameters: z.object({
+      path: z.string(),
+      oldText: z.string(),
+      newText: z.string(),
+    }),
+    result: z.object({ success: z.boolean() }),
+    execute: async (params) => {
+      const content = await Bun.file(params.path).text()
+
+      if (!content.includes(params.oldText)) {
+        throw new Error(`oldText 未在文件中找到: ${params.path}`)
+      }
+
+      const newContent = content.replace(params.oldText, params.newText)
+      await Bun.write(params.path, newContent)
+
+      return { success: true }
+    },
+  })
+
+  const ls = Tool.define({
+    name: 'ls',
+    description: '列出目录内容',
+    parameters: z.object({ path: z.string() }),
+    result: z.object({
+      entries: z.array(
+        z.object({
+          name: z.string(),
+          type: z.enum(['file', 'directory']),
+        }),
+      ),
+    }),
+    execute: async (params) => {
+      const entries = await readdir(params.path, { withFileTypes: true })
+      return {
+        entries: entries.map((entry) => ({
+          name: entry.name,
+          type: entry.isDirectory() ? ('directory' as const) : ('file' as const),
+        })),
+      }
+    },
+  })
+
+  const webfetch = Tool.define({
+    name: 'webfetch',
+    description: '抓取网页内容',
+    parameters: z.object({ url: z.string() }),
+    result: z.object({
+      content: z.string(),
+      status: z.number(),
+    }),
+    execute: async (params) => {
+      const response = await fetch(params.url)
+      const content = await response.text()
+      return {
+        content,
+        status: response.status,
+      }
+    },
+  })
+
   ToolRegistry.register(read)
   ToolRegistry.register(write)
   ToolRegistry.register(bash)
+  ToolRegistry.register(glob)
+  ToolRegistry.register(grep)
+  ToolRegistry.register(edit)
+  ToolRegistry.register(ls)
+  ToolRegistry.register(webfetch)
 }
 
 registerBuiltinTools()

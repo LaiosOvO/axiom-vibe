@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ProviderFactory } from './llm'
 
 export namespace Provider {
   export const Info = z.object({
@@ -205,5 +206,21 @@ export namespace Provider {
   export function reset(): void {
     registry.clear()
     initBuiltins()
+  }
+
+  export function getLanguageModel(modelId: string) {
+    const [providerId, ...modelParts] = modelId.split('/')
+    const modelName = modelParts.join('/')
+
+    if (!providerId || !modelName) {
+      throw new Error(`Invalid modelId format: ${modelId}. Expected format: "providerId/modelName"`)
+    }
+
+    const provider = get(providerId)
+    if (!provider) {
+      throw new Error(`Provider not found: ${providerId}`)
+    }
+
+    return ProviderFactory.getLanguageModel(providerId, modelName)
   }
 }

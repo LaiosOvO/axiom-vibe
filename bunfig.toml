@@ -1,2 +1,2 @@
 [install]
-peer = false
+registry = "https://registry.npmmirror.com"

@@ -25,7 +25,17 @@
     "ai": "5.0.119",
     "hono": "4.10.7",
     "zod": "4.1.8",
-    "solid-js": "1.9.10"
+    "solid-js": "1.9.9",
+    "@ai-sdk/anthropic": "^3.0.39",
+    "@ai-sdk/openai": "^3.0.26",
+    "@ai-sdk/google": "^3.0.22",
+    "@ai-sdk/groq": "^3.0.22",
+    "@ai-sdk/mistral": "^3.0.19",
+    "@ai-sdk/xai": "^3.0.48",
+    "@ai-sdk/provider": "^3.0.8",
+    "@ai-sdk/provider-utils": "^4.0.14",
+    "@opentui/core": "^0.1.77",
+    "@opentui/solid": "^0.1.77"
   },
   "repository": {
     "type": "git",
