@@ -1,5 +1,6 @@
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { type Component, For, createSignal } from 'solid-js'
+import { Agent } from '../../../../core/src/agent'
 import { NAME, VERSION } from '../../../../core/src/index'
 import { Provider } from '../../../../core/src/provider/index'
 import { Session } from '../../../../core/src/session/index'
@@ -11,30 +12,34 @@ export const Home: Component<{ onExit?: () => void }> = (props) => {
   const { navigate } = useRoute()
   const dimensions = useTerminalDimensions()
   const [selectedIndex, setSelectedIndex] = createSignal(0)
+  const [selectedAgent, setSelectedAgent] = createSignal('build')
 
-  // 获取可用 provider 列表
+  const agents = Agent.listAgentDefs().filter((a) => a.mode === 'primary')
+
   const availableProviders = Provider.getAvailable()
 
-  // 获取最近会话列表（最多 5 个）
   const recentSessions = Session.list()
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 5)
 
-  // 键盘快捷键
   useKeyboard((event) => {
-    // q 退出
     if (event.name === 'q' && !event.ctrl) {
       props.onExit?.()
       return
     }
 
-    // Ctrl+C 退出
     if (event.ctrl && event.name === 'c') {
       props.onExit?.()
       return
     }
 
-    // 上下箭头选择会话
+    if (event.name === 'tab') {
+      const currentIndex = agents.findIndex((a) => a.id === selectedAgent())
+      const nextIndex = (currentIndex + 1) % agents.length
+      setSelectedAgent(agents[nextIndex]!.id)
+      return
+    }
+
     if (event.name === 'up') {
       setSelectedIndex((prev) => Math.max(0, prev - 1))
       return
@@ -45,7 +50,6 @@ export const Home: Component<{ onExit?: () => void }> = (props) => {
       return
     }
 
-    // Enter 打开选中的会话
     if (event.name === 'return' && recentSessions.length > 0) {
       const session = recentSessions[selectedIndex()]
       if (session) {
@@ -54,19 +58,22 @@ export const Home: Component<{ onExit?: () => void }> = (props) => {
     }
   })
 
-  // 处理新消息提交
   const handleSubmit = (text: string) => {
-    // 创建新会话
-    const modelId = process.env.AXIOM_MODEL ?? 'anthropic/claude-3-5-sonnet-20241022'
-    const session = Session.create({ modelId, title: text.slice(0, 50) })
+    const agent = agents.find((a) => a.id === selectedAgent())
+    const modelId = agent?.model ?? 'anthropic/claude-3-5-sonnet-20241022'
+    const agentId = agent?.id
 
-    // 添加用户消息
+    const session = Session.create({
+      modelId,
+      agentId,
+      title: text.slice(0, 50),
+    })
+
     Session.addMessage(session.id, {
       role: 'user',
       content: text,
     })
 
-    // 导航到会话页面
     navigate({ type: 'session', sessionId: session.id })
   }
 
@@ -89,6 +96,28 @@ export const Home: Component<{ onExit?: () => void }> = (props) => {
       <box flexDirection="column" marginBottom={2}>
         <text fg="#888888">可用 Provider: {availableProviders.length} 个</text>
         <text fg="#888888">最近会话: {recentSessions.length} 个</text>
+      </box>
+
+      {/* Agent 选择器 */}
+      <box flexDirection="column" marginBottom={2}>
+        <text fg="#00ff00" marginBottom={1}>
+          Agent:
+        </text>
+        <box flexDirection="row" gap={2}>
+          <For each={agents}>
+            {(agent) => (
+              <text
+                fg={selectedAgent() === agent.id ? '#00ff00' : '#888888'}
+                bold={selectedAgent() === agent.id}
+              >
+                [{selectedAgent() === agent.id ? '●' : '○'}] {agent.name}
+              </text>
+            )}
+          </For>
+        </box>
+        <text fg="#666666" marginTop={1}>
+          Tab 切换 Agent
+        </text>
       </box>
 
       {/* Provider 列表 */}
@@ -141,7 +170,7 @@ export const Home: Component<{ onExit?: () => void }> = (props) => {
       {/* 帮助文本 */}
       <box flexDirection="column" marginBottom={1}>
         <text fg="#888888">输入消息开始新会话</text>
-        <text fg="#888888">↑↓ 选择会话 | Enter 打开 | q 或 Ctrl+C 退出</text>
+        <text fg="#888888">Tab 切换 Agent | ↑↓ 选择会话 | Enter 打开 | q 或 Ctrl+C 退出</text>
       </box>
 
       {/* 输入框 */}

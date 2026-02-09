@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 // biome-ignore lint/style/useImportType: z 在 schema 定义中作为值使用
 import { z } from 'zod'
+import { Agent } from '../agent'
+import { Provider } from '../provider'
 import { Session } from '../session'
+import { ToolRegistry } from '../tool'
 
 export namespace Server {
   export const Config = z.object({
@@ -66,6 +69,126 @@ export namespace Server {
         if (error instanceof Error && error.message.includes('不存在')) {
           return c.json({ error: 'Session not found' }, 404)
         }
+        return c.json({ error: 'Invalid request' }, 400)
+      }
+    })
+
+    // Agent 端点
+    app.get('/agents', (c) => {
+      const agents = Agent.listAgentDefs()
+      return c.json(
+        agents.map((a) => ({
+          id: a.id,
+          name: a.name,
+          description: a.description,
+          mode: a.mode,
+          model: a.model,
+          tools: a.tools,
+        })),
+      )
+    })
+
+    app.get('/agents/:id', (c) => {
+      const id = c.req.param('id')
+      const agent = Agent.getAgentDef(id)
+      if (!agent) {
+        return c.json({ error: 'Agent not found' }, 404)
+      }
+      return c.json({
+        id: agent.id,
+        name: agent.name,
+        description: agent.description,
+        mode: agent.mode,
+        model: agent.model,
+        tools: agent.tools,
+      })
+    })
+
+    // Provider 端点
+    app.get('/providers', (c) => {
+      const providers = Provider.getAvailable()
+      return c.json(
+        providers.map((p) => ({
+          id: p.id,
+          name: p.name,
+          models: p.models,
+        })),
+      )
+    })
+
+    // Tool 端点
+    app.get('/tools', (c) => {
+      const tools = ToolRegistry.list()
+      return c.json(
+        tools.map((t) => ({
+          name: t.name,
+          description: t.description,
+        })),
+      )
+    })
+
+    // SSE 流式聊天端点
+    app.post('/session/:id/chat', async (c) => {
+      const sessionId = c.req.param('id')
+      const session = Session.get(sessionId)
+      if (!session) {
+        return c.json({ error: 'Session not found' }, 404)
+      }
+
+      try {
+        const body = await c.req.json()
+        const content = body.content as string
+        if (!content) {
+          return c.json({ error: 'content is required' }, 400)
+        }
+
+        // 添加用户消息
+        Session.addMessage(sessionId, { role: 'user', content })
+
+        // 返回 SSE 流
+        return new Response(
+          new ReadableStream({
+            async start(controller) {
+              const encoder = new TextEncoder()
+              const send = (event: string, data: unknown) => {
+                controller.enqueue(
+                  encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+                )
+              }
+
+              try {
+                // 发送开始事件
+                send('start', { sessionId })
+
+                // 注意：这里不执行真正的 LLM 调用，
+                // 真实场景需要 model 参数，此处返回占位响应
+                // 后续版本将接入 AgentRunner
+                const assistantMessage = Session.addMessage(sessionId, {
+                  role: 'assistant',
+                  content: `[SSE 响应占位] 收到消息: ${content}`,
+                })
+
+                send('text', { content: assistantMessage.content })
+                send('done', {
+                  messageId: assistantMessage.id,
+                  usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                })
+              } catch (error) {
+                send('error', { message: error instanceof Error ? error.message : String(error) })
+              } finally {
+                controller.close()
+              }
+            },
+          }),
+          {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              Connection: 'keep-alive',
+            },
+          },
+        )
+      } catch (error) {
         return c.json({ error: 'Invalid request' }, 400)
       }
     })

@@ -1,5 +1,6 @@
 import { useKeyboard, useTerminalDimensions } from '@opentui/solid'
 import { type Component, For, Show, createSignal } from 'solid-js'
+import { Agent } from '../../../../core/src/agent'
 import { AiAdapter } from '../../../../core/src/provider/adapter'
 import { ProviderFactory } from '../../../../core/src/provider/llm'
 import { Session } from '../../../../core/src/session/index'
@@ -231,6 +232,14 @@ export const SessionView: Component<{ onExit?: () => void }> = (props) => {
                 {sess().title}
               </text>
               <text fg="#888888">模型: {sess().modelId}</text>
+              <text fg="#888888">
+                Agent: {(() => {
+                  const agentId = sess().agentId
+                  if (!agentId) return 'Build'
+                  const agent = Agent.getAgentDef(agentId)
+                  return agent?.name ?? agentId
+                })()}
+              </text>
             </box>
 
             {/* 分隔线 */}

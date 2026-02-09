@@ -32,6 +32,7 @@ export namespace Session {
     id: z.string(),
     title: z.string(),
     modelId: z.string(),
+    agentId: z.string().optional(),
     messages: z.array(Message),
     createdAt: z.number(),
     updatedAt: z.number(),
@@ -41,7 +42,7 @@ export namespace Session {
 
   const registry = new Map<string, Info>()
 
-  export function create(opts: { modelId: string; title?: string }): Info {
+  export function create(opts: { modelId: string; title?: string; agentId?: string }): Info {
     const id = crypto.randomUUID()
     const now = Date.now()
     const title = opts.title ?? `会话 ${new Date(now).toLocaleString('zh-CN')}`
@@ -50,6 +51,7 @@ export namespace Session {
       id,
       title,
       modelId: opts.modelId,
+      agentId: opts.agentId,
       messages: [],
       createdAt: now,
       updatedAt: now,

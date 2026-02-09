@@ -209,4 +209,103 @@ export namespace Orchestrator {
     planRegistry.clear()
     initPresets()
   }
+
+  export interface StepResult {
+    stepId: string
+    agentId: string
+    success: boolean
+    output: string
+    usage: { inputTokens: number; outputTokens: number; totalTokens: number }
+  }
+
+  export interface PlanResult {
+    planId: string
+    results: StepResult[]
+    allCompleted: boolean
+    totalUsage: { inputTokens: number; outputTokens: number; totalTokens: number }
+  }
+
+  export async function runStep(
+    planId: string,
+    step: TaskStep,
+    model: import('ai').LanguageModel,
+    projectRoot?: string,
+  ): Promise<StepResult> {
+    const { AgentRunner } = await import('../agent/runner')
+
+    updateStepStatus(planId, step.id, 'running')
+
+    try {
+      const result = await AgentRunner.run({
+        agentId: step.agentId,
+        userMessage: step.prompt,
+        model,
+        projectRoot,
+      })
+
+      return {
+        stepId: step.id,
+        agentId: step.agentId,
+        success: result.finishReason !== 'error',
+        output: result.assistantMessage.content,
+        usage: result.usage,
+      }
+    } catch (error) {
+      return {
+        stepId: step.id,
+        agentId: step.agentId,
+        success: false,
+        output: error instanceof Error ? error.message : String(error),
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      }
+    }
+  }
+
+  export async function executePlan(
+    plan: Plan,
+    model: import('ai').LanguageModel,
+    projectRoot?: string,
+  ): Promise<PlanResult> {
+    const results: StepResult[] = []
+    const totalUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+    const maxIterations = plan.steps.length + 1
+
+    for (let i = 0; i < maxIterations; i++) {
+      const nextSteps = getNextSteps(plan)
+      if (nextSteps.length === 0) break
+
+      const parallelSteps = nextSteps.filter((s) => s.parallel)
+      const serialSteps = nextSteps.filter((s) => !s.parallel)
+
+      if (parallelSteps.length > 0) {
+        const parallelResults = await Promise.all(
+          parallelSteps.map((step) => runStep(plan.id, step, model, projectRoot)),
+        )
+        for (const result of parallelResults) {
+          results.push(result)
+          totalUsage.inputTokens += result.usage.inputTokens
+          totalUsage.outputTokens += result.usage.outputTokens
+          totalUsage.totalTokens += result.usage.totalTokens
+
+          const status = result.success ? 'completed' : 'failed'
+          updateStepStatus(plan.id, result.stepId, status)
+        }
+      }
+
+      if (serialSteps.length > 0) {
+        const step = serialSteps[0]!
+        const result = await runStep(plan.id, step, model, projectRoot)
+        results.push(result)
+        totalUsage.inputTokens += result.usage.inputTokens
+        totalUsage.outputTokens += result.usage.outputTokens
+        totalUsage.totalTokens += result.usage.totalTokens
+
+        const status = result.success ? 'completed' : 'failed'
+        updateStepStatus(plan.id, result.stepId, status)
+      }
+    }
+
+    const allCompleted = plan.steps.every((s) => s.status === 'completed')
+    return { planId: plan.id, results, allCompleted, totalUsage }
+  }
 }

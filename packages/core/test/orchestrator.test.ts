@@ -228,4 +228,162 @@ describe('Orchestrator', () => {
       expect(Orchestrator.getAgent('temp-agent')).toBeUndefined()
     })
   })
+
+  describe('类型定义', () => {
+    it('StepResult 类型存在', () => {
+      const result: Orchestrator.StepResult = {
+        stepId: 'step-1',
+        agentId: 'builder',
+        success: true,
+        output: '执行成功',
+        usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+      }
+      expect(result.stepId).toBe('step-1')
+      expect(result.success).toBe(true)
+      expect(result.usage.totalTokens).toBe(150)
+    })
+
+    it('PlanResult 类型存在', () => {
+      const planResult: Orchestrator.PlanResult = {
+        planId: 'plan-1',
+        results: [],
+        allCompleted: false,
+        totalUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      }
+      expect(planResult.planId).toBe('plan-1')
+      expect(planResult.allCompleted).toBe(false)
+      expect(planResult.results.length).toBe(0)
+    })
+  })
+
+  describe('复杂依赖场景', () => {
+    it('plan 中所有 step 完成后 getNextSteps 返回空', () => {
+      const plan = Orchestrator.createPlan('完成测试', [
+        {
+          agentId: 'builder',
+          prompt: '步骤1',
+          dependsOn: [],
+          parallel: false,
+        },
+        {
+          agentId: 'explorer',
+          prompt: '步骤2',
+          dependsOn: [],
+          parallel: false,
+        },
+      ])
+
+      for (const step of plan.steps) {
+        Orchestrator.updateStepStatus(plan.id, step.id, 'completed')
+      }
+
+      const nextSteps = Orchestrator.getNextSteps(plan)
+      expect(nextSteps.length).toBe(0)
+    })
+
+    it('复杂依赖链处理正确', () => {
+      const plan = Orchestrator.createPlan('复杂依赖', [
+        {
+          agentId: 'builder',
+          prompt: '步骤1',
+          dependsOn: [],
+          parallel: false,
+        },
+      ])
+
+      const step1Id = plan.steps[0]!.id
+
+      plan.steps.push({
+        id: 'step-2',
+        agentId: 'explorer',
+        prompt: '步骤2',
+        dependsOn: [step1Id],
+        parallel: false,
+        status: 'pending',
+      })
+
+      plan.steps.push({
+        id: 'step-3',
+        agentId: 'oracle',
+        prompt: '步骤3',
+        dependsOn: [step1Id],
+        parallel: false,
+        status: 'pending',
+      })
+
+      let nextSteps = Orchestrator.getNextSteps(plan)
+      expect(nextSteps.length).toBe(1)
+      expect(nextSteps[0]!.id).toBe(step1Id)
+
+      Orchestrator.updateStepStatus(plan.id, step1Id, 'completed')
+
+      nextSteps = Orchestrator.getNextSteps(plan)
+      expect(nextSteps.length).toBe(2)
+      expect(nextSteps.map((s) => s.id).sort()).toEqual(['step-2', 'step-3'])
+    })
+
+    it('多重依赖链处理正确', () => {
+      const plan = Orchestrator.createPlan('多重依赖', [
+        {
+          agentId: 'builder',
+          prompt: '步骤1',
+          dependsOn: [],
+          parallel: false,
+        },
+        {
+          agentId: 'explorer',
+          prompt: '步骤2',
+          dependsOn: [],
+          parallel: false,
+        },
+      ])
+
+      const step1Id = plan.steps[0]!.id
+      const step2Id = plan.steps[1]!.id
+
+      plan.steps.push({
+        id: 'step-3',
+        agentId: 'oracle',
+        prompt: '步骤3',
+        dependsOn: [step1Id, step2Id],
+        parallel: false,
+        status: 'pending',
+      })
+
+      Orchestrator.updateStepStatus(plan.id, step1Id, 'completed')
+
+      let nextSteps = Orchestrator.getNextSteps(plan)
+      expect(nextSteps.map((s) => s.id)).not.toContain('step-3')
+
+      Orchestrator.updateStepStatus(plan.id, step2Id, 'completed')
+
+      nextSteps = Orchestrator.getNextSteps(plan)
+      expect(nextSteps.map((s) => s.id)).toContain('step-3')
+    })
+
+    it('失败的步骤不阻塞其他独立步骤', () => {
+      const plan = Orchestrator.createPlan('失败测试', [
+        {
+          agentId: 'builder',
+          prompt: '步骤1',
+          dependsOn: [],
+          parallel: false,
+        },
+        {
+          agentId: 'explorer',
+          prompt: '步骤2',
+          dependsOn: [],
+          parallel: false,
+        },
+      ])
+
+      const step1Id = plan.steps[0]!.id
+
+      Orchestrator.updateStepStatus(plan.id, step1Id, 'failed')
+
+      const nextSteps = Orchestrator.getNextSteps(plan)
+      expect(nextSteps.length).toBe(1)
+      expect(nextSteps[0]!.id).toBe(plan.steps[1]!.id)
+    })
+  })
 })
