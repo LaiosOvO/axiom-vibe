@@ -4,6 +4,12 @@ import { join } from 'node:path'
 import { ToolRegistry } from '../src/tool'
 import { cleanupTempDir, createTempDir, createTestFile } from './preload'
 
+const httpbinReachable = await fetch('https://httpbin.org/get', {
+  signal: AbortSignal.timeout(5000),
+})
+  .then((r) => r.ok)
+  .catch(() => false)
+
 describe('新增工具集成测试', () => {
   let tempDir: string
 
@@ -225,7 +231,9 @@ describe('新增工具集成测试', () => {
   })
 
   describe('webfetch 工具', () => {
-    it('抓取网页内容', async () => {
+    const testFn = httpbinReachable ? it : it.skip
+
+    testFn('抓取网页内容', async () => {
       const webfetch = ToolRegistry.get('webfetch')
       const result = (await webfetch?.execute({
         url: 'https://httpbin.org/html',
@@ -237,7 +245,7 @@ describe('新增工具集成测试', () => {
       expect(result.content.length).toBeGreaterThan(0)
     })
 
-    it('返回状态码', async () => {
+    testFn('返回状态码', async () => {
       const webfetch = ToolRegistry.get('webfetch')
       const result = (await webfetch?.execute({
         url: 'https://httpbin.org/status/404',
@@ -246,7 +254,7 @@ describe('新增工具集成测试', () => {
       expect(result.status).toBe(404)
     })
 
-    it('处理 JSON 响应', async () => {
+    testFn('处理 JSON 响应', async () => {
       const webfetch = ToolRegistry.get('webfetch')
       const result = (await webfetch?.execute({
         url: 'https://httpbin.org/json',

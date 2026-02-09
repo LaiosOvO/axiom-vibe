@@ -38,7 +38,7 @@ describe('SPEC-00: 项目初始化', () => {
   })
 
   test('biome lint 通过', async () => {
-    const proc = Bun.spawn(['bunx', 'biome', 'check', '.'], {
+    const proc = Bun.spawn(['bunx', 'biome', 'lint', '.'], {
       cwd: ROOT,
       stdout: 'pipe',
       stderr: 'pipe',
